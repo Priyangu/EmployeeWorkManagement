@@ -45,6 +45,8 @@ model Organisation {
   deletedAt DateTime?
 
   users User[]
+  employees Employee[]
+  teams Team[]
 
   @@map("organisations")
 }
@@ -67,9 +69,69 @@ model User {
   refreshTokens           RefreshToken[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  employee                Employee?
 
   @@index([organisationId])
   @@map("users")
+}
+
+// ── Phase 4: Employees & Teams ───────────────────────────────────────────
+// Every row carries organisationId (tenant-scoped by construction). The User
+// link is 1:1 and nullable: a profile can exist for a user created later
+// (link mode), and deleting a user must never cascade-delete the HR record —
+// the employee row survives with userId set to null.
+// Soft delete via deletedAt (employees are referential history for tasks,
+// timesheets, etc. per architecture §B). Employment vs login state are kept
+// separate on purpose: employmentStatus is the HR lifecycle, User.isActive is
+// the login gate; disable/enable syncs both so a disabled employee cannot
+// authenticate (Phase 4 acceptance test).
+enum EmploymentStatus {
+  ACTIVE
+  DISABLED
+}
+
+model Employee {
+  id               String           @id @default(uuid())
+  organisationId   String
+  organisation     Organisation     @relation(fields: [organisationId], references: [id])
+  userId           String?          @unique
+  user             User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name             String
+  phone            String?
+  teamId           String?
+  team             Team?            @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  managerId        String?
+  manager          Employee?        @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports          Employee[]       @relation("EmployeeManager")
+  managedTeams     Team[]           @relation("TeamManager")
+  timeZone         String           @default("Pacific/Auckland")
+  workingHours     Json?
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  @@index([organisationId])
+  @@index([teamId])
+  @@index([managerId])
+  @@map("employees")
+}
+
+model Team {
+  id             String       @id @default(uuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+  name           String
+  managerId      String?
+  manager        Employee?    @relation("TeamManager", fields: [managerId], references: [id], onDelete: SetNull)
+  members        Employee[]   @relation("TeamMembers")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  @@unique([organisationId, name])
+  @@index([organisationId])
+  @@map("teams")
 }
 
 // Refresh tokens are stored hashed (never plaintext) so a DB read alone

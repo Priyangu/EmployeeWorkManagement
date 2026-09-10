@@ -6,6 +6,8 @@ import { HealthModule } from "./modules/health/health.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { OrganisationsModule } from "./modules/organisations/organisations.module";
+import { EmployeesModule } from "./modules/employees/employees.module";
+import { TeamsModule } from "./modules/teams/teams.module";
 
 @Module({
   imports: [
@@ -17,8 +19,9 @@ import { OrganisationsModule } from "./modules/organisations/organisations.modul
     HealthModule,
     AuthModule,
     OrganisationsModule,
+    EmployeesModule,
+    TeamsModule,
     // Future modules land here, one per domain area, e.g.:
-    // EmployeesModule, TeamsModule,
     // ProjectsModule, TasksModule, SchedulingModule, TimeTrackingModule,
     // TimesheetsModule, AttendanceModule, LeaveModule, NotificationsModule,
     // DashboardModule, ReportsModule, AuditModule.

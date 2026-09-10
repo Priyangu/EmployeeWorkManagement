@@ -34,7 +34,78 @@ export const EmploymentStatus = {
 
 export type EmploymentStatus = (typeof EmploymentStatus)[keyof typeof EmploymentStatus];
 
-// ── Phase 3: Organisations & tenant isolation ────────────────────────────
+// ── Phase 4: Employees & Teams ───────────────────────────────────────────
+export interface WorkingHours {
+  // Free-form per-day schedule, e.g. { mon: { start: "09:00", end: "17:00" } }.
+  // Validated lightly on the API (must be an object); interpreted by the UI.
+  [day: string]: unknown;
+}
+
+export interface EmployeeResponse {
+  id: string;
+  organisationId: string;
+  userId: string | null;
+  email: string | null;
+  role: string | null;
+  name: string;
+  phone: string | null;
+  teamId: string | null;
+  teamName: string | null;
+  managerId: string | null;
+  managerName: string | null;
+  timeZone: string;
+  workingHours: WorkingHours | null;
+  employmentStatus: EmploymentStatus;
+  isActive: boolean | null; // linked User.isActive, null when no linked user
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface TeamResponse {
+  id: string;
+  organisationId: string;
+  name: string;
+  managerId: string | null;
+  managerName: string | null;
+  memberCount: number;
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface CreateEmployeeRequest {
+  // Mode A (create login + profile together): email + password (+ optional role).
+  // Mode B (link to existing user): userId.
+  // Exactly one mode is required — the API rejects both/neither.
+  email?: string;
+  password?: string;
+  role?: UserRole;
+  userId?: string;
+  name: string;
+  phone?: string;
+  teamId?: string;
+  managerId?: string;
+  timeZone?: string;
+  workingHours?: WorkingHours;
+}
+
+export interface UpdateEmployeeRequest {
+  name?: string;
+  phone?: string | null;
+  teamId?: string | null;
+  managerId?: string | null;
+  timeZone?: string;
+  workingHours?: WorkingHours | null;
+}
+
+export interface CreateTeamRequest {
+  name: string;
+  managerId?: string;
+}
+
+export interface UpdateTeamRequest {
+  name?: string;
+  managerId?: string | null;
+}
 
 export const OrganisationStatus = {
   ACTIVE: "ACTIVE",
