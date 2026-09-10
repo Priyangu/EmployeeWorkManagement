@@ -1,0 +1,21 @@
+{
+  "name": "employee-work-management",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @ewm/api dev",
+    "dev:web": "pnpm --filter @ewm/web dev",
+    "dev:mobile": "pnpm --filter @ewm/mobile start",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

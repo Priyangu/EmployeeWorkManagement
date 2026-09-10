@@ -1,0 +1,116 @@
+// Prisma schema for the Employee Work Management API.
+// Phase 1: datasource/generator only. Models are added incrementally,
+// starting with User/Organisation in Phase 2/3 — see docs/architecture.md
+// for the full entity list and relationships.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Phase 2: Authentication ──────────────────────────────────────────────
+// ── Phase 3: Organisations & tenant isolation ─────────────────────────────
+// Every tenant-scoped row carries organisationId. Organisation/User soft
+// delete via deletedAt (kept for referential history per architecture).
+//
+// Note: email is globally unique (not unique-per-org as the architecture
+// eventually wants) to keep login simple while users are created via seed
+// scripts. When Phase 4 introduces org-scoped user onboarding, relax this to
+// @@unique([organisationId, email]).
+
+enum UserRole {
+  SUPER_ADMIN
+  ORG_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum OrganisationStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Organisation {
+  id        String             @id @default(uuid())
+  name      String
+  timeZone  String             @default("Pacific/Auckland")
+  country   String             @default("NZ")
+  status    OrganisationStatus @default(ACTIVE)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  deletedAt DateTime?
+
+  users User[]
+
+  @@map("organisations")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  // Nullable so platform-level SUPER_ADMIN accounts exist without an org.
+  // TenantGuard rejects org-scoped access when this is null.
+  organisationId  String?
+  organisation    Organisation? @relation(fields: [organisationId], references: [id])
+  email           String    @unique
+  passwordHash    String
+  role            UserRole  @default(EMPLOYEE)
+  isActive        Boolean   @default(true)
+  isEmailVerified Boolean   @default(false)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+
+  @@index([organisationId])
+  @@map("users")
+}
+
+// Refresh tokens are stored hashed (never plaintext) so a DB read alone
+// can't be used to impersonate a user. Revocation is explicit via
+// revokedAt, which supports logout and "reset password invalidates all
+// sessions" without needing to delete rows (keeps an audit trail).
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}

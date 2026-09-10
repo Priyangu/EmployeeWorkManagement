@@ -1,0 +1,48 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { clearSession, getSessionUser, type SessionUser } from "../../lib/auth";
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    const sessionUser = getSessionUser();
+    if (!sessionUser) {
+      void router.replace("/login");
+      return;
+    }
+    setUser(sessionUser);
+  }, [router]);
+
+  function handleLogout() {
+    clearSession();
+    void router.push("/login");
+  }
+
+  return (
+    <main style={{ padding: 40, maxWidth: 640 }}>
+      <h1>Dashboard</h1>
+      {!user ? (
+        <p>Loading…</p>
+      ) : (
+        <>
+          <p>
+            Welcome, <strong>{user.email}</strong>. Signed in as{" "}
+            <code>{user.role}</code>
+            {user.organisationId ? (
+              <> (org <code>{user.organisationId}</code>)</>
+            ) : null}
+            .
+          </p>
+          <p style={{ color: "#666", fontSize: 14 }}>
+            Phase 3 placeholder — real dashboard widgets arrive in Phase 10.
+          </p>
+          <button onClick={handleLogout}>Sign out</button>
+        </>
+      )}
+    </main>
+  );
+}

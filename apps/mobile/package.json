@@ -1,0 +1,30 @@
+{
+  "name": "@ewm/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "lint": "tsc --noEmit",
+    "test": "echo \"no tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@ewm/shared-types": "workspace:*",
+    "expo": "~57.0.20",
+    "expo-router": "~57.0.20",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@types/node": "^20.14.15",
+    "@types/react": "^19.2.7",
+    "babel-preset-expo": "~57.0.11",
+    "typescript": "^5.5.4"
+  }
+}
