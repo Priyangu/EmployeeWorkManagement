@@ -22,6 +22,7 @@ export const UserRole = {
   SUPER_ADMIN: "SUPER_ADMIN",
   ORG_ADMIN: "ORG_ADMIN",
   MANAGER: "MANAGER",
+  TEAM_LEAD: "TEAM_LEAD",
   EMPLOYEE: "EMPLOYEE",
 } as const;
 
@@ -208,6 +209,106 @@ export interface TaskCategoryResponse {
   name: string;
   createdAt: string; // ISO-8601
   updatedAt: string; // ISO-8601
+}
+
+// ── Phase 7: Scheduling ─────────────────────────────────────────────────
+export interface TaskScheduleResponse {
+  id: string;
+  organisationId: string;
+  taskId: string;
+  taskTitle: string;
+  employeeId: string;
+  employeeName: string;
+  scheduledStart: string; // ISO-8601 (UTC)
+  scheduledEnd: string; // ISO-8601 (UTC)
+  // Conflict warning (not a hard error): true when this block overlaps
+  // another block for the same employee. conflictIds lists the overlapping
+  // schedule ids.
+  overlaps: boolean;
+  conflictIds: string[];
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface CreateTaskScheduleRequest {
+  taskId: string;
+  employeeId: string;
+  scheduledStart: string; // ISO-8601 (UTC)
+  scheduledEnd: string; // ISO-8601 (UTC)
+}
+
+export interface UpdateTaskScheduleRequest {
+  taskId?: string;
+  employeeId?: string;
+  scheduledStart?: string; // ISO-8601 (UTC)
+  scheduledEnd?: string; // ISO-8601 (UTC)
+}
+
+// ── Phase 8: Time Tracking ───────────────────────────────────────────────
+// Timer lifecycle: RUNNING ⇄ PAUSED (server re-derives durationSeconds at
+// stop, net of pausedSeconds). One active timer per employee — enforced in
+// the service with a 409 (the Phase 8 critical test). Manual entries arrive
+// COMPLETED with explicit start/end. Durations ride as seconds on the wire;
+// the web/mobile clients format them for display.
+export const TimeEntryStatus = {
+  RUNNING: "RUNNING",
+  PAUSED: "PAUSED",
+  COMPLETED: "COMPLETED",
+} as const;
+
+export type TimeEntryStatus = (typeof TimeEntryStatus)[keyof typeof TimeEntryStatus];
+
+export const TimeEntrySource = {
+  TIMER: "TIMER",
+  MANUAL: "MANUAL",
+} as const;
+
+export type TimeEntrySource = (typeof TimeEntrySource)[keyof typeof TimeEntrySource];
+
+export interface TimeEntryResponse {
+  id: string;
+  organisationId: string;
+  employeeId: string;
+  employeeName: string;
+  taskId: string | null;
+  taskTitle: string | null;
+  status: TimeEntryStatus;
+  source: TimeEntrySource;
+  startTime: string; // ISO-8601 (UTC)
+  endTime: string | null; // ISO-8601 (UTC); null while the timer runs
+  pausedSeconds: number;
+  durationSeconds: number | null; // null while the timer runs
+  durationMinutes: number | null; // convenience for dashboards; null while running
+  notes: string | null;
+  editedAt: string | null; // ISO-8601
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface StartTimerRequest {
+  employeeId?: string; // managers may start for someone else; defaults to self
+  taskId?: string;
+  notes?: string;
+}
+
+export interface StopTimerRequest {
+  notes?: string;
+}
+
+export interface CreateManualTimeEntryRequest {
+  employeeId?: string; // managers may log for someone else; defaults to self
+  taskId?: string;
+  startTime: string; // ISO-8601 (UTC)
+  endTime: string; // ISO-8601 (UTC)
+  notes?: string;
+}
+
+export interface UpdateTimeEntryRequest {
+  taskId?: string | null;
+  startTime?: string; // ISO-8601 (UTC)
+  endTime?: string | null; // ISO-8601 (UTC); null re-opens the timer when permitted
+  notes?: string | null;
+  reason?: string; // required audit reason when editing someone else's entry
 }
 
 export interface TaskCommentResponse {

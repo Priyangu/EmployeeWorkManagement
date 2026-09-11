@@ -10,6 +10,8 @@ import { EmployeesModule } from "./modules/employees/employees.module";
 import { TeamsModule } from "./modules/teams/teams.module";
 import { ProjectsModule } from "./modules/projects/projects.module";
 import { TasksModule } from "./modules/tasks/tasks.module";
+import { SchedulingModule } from "./modules/scheduling/scheduling.module";
+import { TimeTrackingModule } from "./modules/time-tracking/time-tracking.module";
 
 @Module({
   imports: [
@@ -25,8 +27,9 @@ import { TasksModule } from "./modules/tasks/tasks.module";
     TeamsModule,
     ProjectsModule,
     TasksModule,
+    SchedulingModule,
+    TimeTrackingModule,
     // Future modules land here, one per domain area, e.g.:
-    // SchedulingModule, TimeTrackingModule,
     // TimesheetsModule, AttendanceModule, LeaveModule, NotificationsModule,
     // DashboardModule, ReportsModule, AuditModule.
   ],

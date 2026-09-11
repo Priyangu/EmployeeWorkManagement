@@ -9,13 +9,16 @@ ERD, API spec, and milestone plan.
 
 **Phase 5 & 6 — Projects, Task Categories & Tasks.** The Project module supports full CRUD, a validated status lifecycle (PLANNED → ACTIVE → ON_HOLD → COMPLETED/CANCELLED with terminal-state freeze, so a finished project can never be silently reopened), date/budget fields, project-manager assignment to an org employee, and customer/status filtering. Task Categories are a lightweight per-organisation dropdown list with duplicate detection. The Tasks module adds create/update/assign with an auditable assignment history, a workflow-transition gateway (`/start`, `/pause`, `/resume`, `/complete` — terminal COMPLETED/CANCELLED tasks are locked), comments, and attachment metadata, all behind the Auth → Tenant → Roles guard chain with assignee-or-writer enforcement on workflow actions. All endpoints are tenant-scoped by construction.
 
+**Phase 7 — Scheduling.** The Scheduling module adds `GET /schedule` (week-window listing with `employeeId` filter), `POST /schedule`, `PATCH /schedule/:id` (move/reassign for drag-reschedule), and `DELETE /schedule/:id`, all tenant-scoped behind the Auth → Tenant → Roles chain (reads open to any org member, writes restricted to ORG_ADMIN/MANAGER/TEAM_LEAD). Overlaps for the same employee surface as `overlaps` + `conflictIds` warning flags, never hard errors. The web `/schedule` page renders a no-dependency week grid (rows = employees, columns = Mon–Sun) with Move/Remove controls and a create form converting local time to UTC ISO-8601.
+
 | Phase | Milestone | Status |
 |---|---|---|
 | 1–3 | Monorepo scaffold, auth, organisations & tenant isolation | ✅ Done (web login + dashboard) |
 | 4 | Employees & Teams (lifecycle, disable/enable, tenant isolation) | ✅ Done (API + web) |
 | 5–6 | Projects, task categories & tasks (RBAC, status workflow) | ✅ Done (API) |
-| 7 | Scheduling | ⬜ Next |
-| 8–13 | Time tracking, timesheets/attendance/leave, dashboard, reports & notifications, mobile completion, testing hardening | ⬜ Planned |
+| 7 | Scheduling (TaskSchedule, overlap warnings, week view) | ✅ Done (API + web) |
+| 8 | Time tracking (timer, manual entry, audited edits) | ✅ Done (API + web + mobile) |
+| 9–13 | Timesheets/attendance/leave, dashboard, reports & notifications, mobile completion, testing hardening | ⬜ Planned |
 
 See `docs/architecture.md` Section F for the full phase breakdown.
 
@@ -72,9 +75,11 @@ pnpm dev:mobile   # opens Expo dev tools / QR code for Expo Go
 
 Open http://localhost:3000 — there is a Phase 1 health-check landing page at
 `/`, a working login at `/login`, a placeholder dashboard at `/dashboard`,
-and Phase 4 admin pages for **employees** (`/employees`) and **teams**
-(`/teams`) once signed in. Projects and Tasks are API-first for now; web UI
-for those lands when the corresponding screens are built.
+Phase 4 admin pages for **employees** (`/employees`) and **teams**
+(`/teams`), a Phase 7 scheduling week view at `/schedule`, and a Phase 8
+time tracking page at `/time-tracking` once signed in. Projects and Tasks
+are API-first for now; web UI for those lands when the corresponding
+screens are built.
 
 On mobile, the login screen shows "API connectivity: OK" once
 Expo Go can reach the API (use your machine's LAN IP in
@@ -99,6 +104,7 @@ Seeded accounts (password `Password123!` unless noted):
 | `superadmin@ewm.test` | SUPER_ADMIN (platform, no org) | — |
 | `admin@ewm.test` | ORG_ADMIN | Acme Ltd |
 | `manager@ewm.test` | MANAGER | Acme Ltd |
+| `teamlead@ewm.test` | TEAM_LEAD | Acme Ltd |
 | `employee@ewm.test` | EMPLOYEE | Acme Ltd |
 | `disabled@ewm.test` | EMPLOYEE (inactive) | Acme Ltd |
 | `orgadmin@globex.test` | ORG_ADMIN | Globex Corp |
@@ -129,8 +135,7 @@ API-specific (run with `pnpm --filter @ewm/api <script>`):
 
 ## Next milestone
 
-Phase 7 — Scheduling: calendar view of scheduled work for a team, create and
-reschedule `TaskSchedule` entries (drag-to-reschedule in the week view),
-with the acceptance criteria that overlapping schedules for the same employee
-return a warning rather than a hard error. See `docs/architecture.md`
-Section F for the full phase breakdown.
+Phase 9 — Timesheets & Attendance & Leave: weekly/daily/monthly timesheet
+aggregation, submit/approve/reject flow with immutability after approval;
+clock in/out; leave request/approval. See `docs/architecture.md` Section F
+for the full phase breakdown.

@@ -26,6 +26,7 @@ enum UserRole {
   SUPER_ADMIN
   ORG_ADMIN
   MANAGER
+  TEAM_LEAD
   EMPLOYEE
 }
 
@@ -50,6 +51,9 @@ model Organisation {
   projects Project[]
   taskCategories TaskCategory[]
   tasks Task[]
+  taskSchedules TaskSchedule[]
+  timeEntries TimeEntry[]
+  auditLogs AuditLog[]
 
   @@map("organisations")
 }
@@ -75,6 +79,8 @@ model User {
   employee                Employee?
   taskComments            TaskComment[]
   taskAttachments         TaskAttachment[]
+  editedTimeEntries       TimeEntry[]        @relation("TimeEntryEditedBy")
+  auditLogs               AuditLog[]
 
   @@index([organisationId])
   @@map("users")
@@ -121,6 +127,8 @@ model Employee {
   taskAssignments    TaskAssignment[]
   assignedTasks      Task[]           @relation("TaskAssignee")
   assignedByTasks    TaskAssignment[] @relation("AssignmentAssigner")
+  schedules          TaskSchedule[]
+  timeEntries        TimeEntry[]
 
   @@index([organisationId])
   @@index([teamId])
@@ -176,6 +184,7 @@ model Project {
   deletedAt        DateTime?
 
   tasks Task[]
+  timeEntries TimeEntry[]
 
   @@index([organisationId])
   @@index([projectManagerId])
@@ -247,6 +256,8 @@ model Task {
   assignments TaskAssignment[]
   comments    TaskComment[]
   attachments TaskAttachment[]
+  schedules   TaskSchedule[]
+  timeEntries TimeEntry[]
 
   @@index([organisationId])
   @@index([projectId])
@@ -254,6 +265,106 @@ model Task {
   @@index([status])
   @@index([dueDate])
   @@map("tasks")
+}
+
+// ── Phase 7: Scheduling ──────────────────────────────────────────────────
+// A booked block of work: an employee works a task between two instants.
+// Timestamps are UTC (per architecture decision 6 — the web/client converts
+// to the employee's IANA timeZone for display). Overlaps for the same
+// employee are *warned, not blocked* (architecture decision 4): the API
+// returns an `overlaps` flag + `conflictIds` instead of rejecting.
+model TaskSchedule {
+  id             String   @id @default(uuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  taskId         String
+  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organisationId])
+  @@index([employeeId])
+  @@index([scheduledStart, scheduledEnd])
+  @@map("task_schedules")
+}
+
+// ── Phase 8: Time Tracking ─────────────────────────────────────────────────
+// Timer model: ONE row per start; pause/resume bump pausedSeconds and move
+// pauseStartedAt in/out. stop stamps endTime and recomputes durationSeconds.
+// A partial unique index (@@unique on [organisationId, employeeId, status]
+// can't be partial in Prisma) is enforced in the service instead: only one
+// RUNNING or PAUSED entry may exist per employee — starting a second timer is
+// a 409 (the Phase 8 critical test). Manual entries are COMPLETED at birth
+// with a TIMER-free source and no endTime ambiguity (they always carry one).
+enum TimeEntryStatus {
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum TimeEntrySource {
+  TIMER
+  MANUAL
+  IMPORTED
+}
+
+model TimeEntry {
+  id             String          @id @default(uuid())
+  organisationId String
+  organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  taskId         String?
+  task           Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  projectId      String? // denormalised from the task at write time for reporting speed
+  project        Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  status         TimeEntryStatus @default(RUNNING)
+  source         TimeEntrySource @default(TIMER)
+  startTime      DateTime
+  endTime        DateTime?
+  pausedSeconds  Int             @default(0)
+  pauseStartedAt DateTime?
+  durationSeconds Int?
+  notes          String?
+  editedById     String? // User who last audited-edited this entry
+  editedBy       User?           @relation("TimeEntryEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+  editedAt       DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@index([organisationId])
+  @@index([employeeId])
+  @@index([taskId])
+  @@map("time_entries")
+}
+
+// Audit trail for time-entry edits. Old/new JSON snapshots plus an optional
+// human reason (required when a manager edits someone else's entry) so an
+// approved-timesheet correction is always explainable.
+model AuditLog {
+  id             String       @id @default(uuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  userId         String? // actor; null for system-generated rows
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action         String // e.g. "time_entry.update"
+  entityType     String // e.g. "TimeEntry"
+  entityId       String
+  oldValueJson   Json?
+  newValueJson   Json?
+  timeEntryId    String?
+  timeEntry      TimeEntry?   @relation(fields: [timeEntryId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([organisationId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
 }
 
 model TaskAssignment {
