@@ -7,7 +7,17 @@ ERD, API spec, and milestone plan.
 
 ## Status
 
-**Phase 5 — Projects & Task Categories.** Projects module (CRUD, status lifecycle with validated transitions, terminal `COMPLETED`/`CANCELLED` freeze, date/budget fields, project-manager employee assignment, customer filter) plus Task Categories as a project sub-resource. Covered by unit + e2e tests. Next milestone: Phase 6 — Tasks, Task Comments & Task Attachments.
+**Phase 5 & 6 — Projects, Task Categories & Tasks.** The Project module supports full CRUD, a validated status lifecycle (PLANNED → ACTIVE → ON_HOLD → COMPLETED/CANCELLED with terminal-state freeze, so a finished project can never be silently reopened), date/budget fields, project-manager assignment to an org employee, and customer/status filtering. Task Categories are a lightweight per-organisation dropdown list with duplicate detection. The Tasks module adds create/update/assign with an auditable assignment history, a workflow-transition gateway (`/start`, `/pause`, `/resume`, `/complete` — terminal COMPLETED/CANCELLED tasks are locked), comments, and attachment metadata, all behind the Auth → Tenant → Roles guard chain with assignee-or-writer enforcement on workflow actions. All endpoints are tenant-scoped by construction.
+
+| Phase | Milestone | Status |
+|---|---|---|
+| 1–3 | Monorepo scaffold, auth, organisations & tenant isolation | ✅ Done (web login + dashboard) |
+| 4 | Employees & Teams (lifecycle, disable/enable, tenant isolation) | ✅ Done (API + web) |
+| 5–6 | Projects, task categories & tasks (RBAC, status workflow) | ✅ Done (API) |
+| 7 | Scheduling | ⬜ Next |
+| 8–13 | Time tracking, timesheets/attendance/leave, dashboard, reports & notifications, mobile completion, testing hardening | ⬜ Planned |
+
+See `docs/architecture.md` Section F for the full phase breakdown.
 
 ## Structure
 
@@ -61,9 +71,10 @@ pnpm dev:mobile   # opens Expo dev tools / QR code for Expo Go
 ```
 
 Open http://localhost:3000 — there is a Phase 1 health-check landing page at
-`/`, a working login at `/login`, and a placeholder dashboard at `/dashboard`.
-The Projects module is API-first right now: create a project via the API while
-building Phase 6, or exercise it through the UI when the projects web page lands.
+`/`, a working login at `/login`, a placeholder dashboard at `/dashboard`,
+and Phase 4 admin pages for **employees** (`/employees`) and **teams**
+(`/teams`) once signed in. Projects and Tasks are API-first for now; web UI
+for those lands when the corresponding screens are built.
 
 On mobile, the login screen shows "API connectivity: OK" once
 Expo Go can reach the API (use your machine's LAN IP in
@@ -118,6 +129,8 @@ API-specific (run with `pnpm --filter @ewm/api <script>`):
 
 ## Next milestone
 
-Phase 3 — Organisation & Tenant Isolation Core (multi-tenant data model,
-tenant guard, RBAC guard, Super Admin org management). See
-`docs/architecture.md` Section F for the full phase breakdown.
+Phase 7 — Scheduling: calendar view of scheduled work for a team, create and
+reschedule `TaskSchedule` entries (drag-to-reschedule in the week view),
+with the acceptance criteria that overlapping schedules for the same employee
+return a warning rather than a hard error. See `docs/architecture.md`
+Section F for the full phase breakdown.
