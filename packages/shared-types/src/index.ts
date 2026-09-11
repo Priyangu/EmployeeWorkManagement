@@ -107,6 +107,167 @@ export interface UpdateTeamRequest {
   managerId?: string | null;
 }
 
+// ── Phase 5: Projects ────────────────────────────────────────────────────
+export const ProjectStatus = {
+  PLANNED: "PLANNED",
+  ACTIVE: "ACTIVE",
+  ON_HOLD: "ON_HOLD",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+} as const;
+
+export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
+
+export interface ProjectResponse {
+  id: string;
+  organisationId: string;
+  name: string;
+  description: string | null;
+  customer: string | null;
+  startDate: string | null; // ISO-8601 date
+  endDate: string | null; // ISO-8601 date
+  status: ProjectStatus;
+  budgetHours: number | null;
+  budgetAmount: string | null; // Decimal serialised as string
+  projectManagerId: string | null;
+  projectManagerName: string | null;
+  taskCount: number;
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface CreateProjectRequest {
+  name: string;
+  description?: string;
+  customer?: string;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  status?: ProjectStatus;
+  budgetHours?: number;
+  budgetAmount?: number;
+  projectManagerId?: string;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string | null;
+  customer?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  status?: ProjectStatus;
+  budgetHours?: number | null;
+  budgetAmount?: number | null;
+  projectManagerId?: string | null;
+}
+
+// ── Phase 6: Tasks ───────────────────────────────────────────────────────
+export const TaskStatus = {
+  NOT_STARTED: "NOT_STARTED",
+  SCHEDULED: "SCHEDULED",
+  IN_PROGRESS: "IN_PROGRESS",
+  PAUSED: "PAUSED",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+  BLOCKED: "BLOCKED",
+} as const;
+
+export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
+
+export const TaskPriority = {
+  LOW: "LOW",
+  NORMAL: "NORMAL",
+  HIGH: "HIGH",
+  URGENT: "URGENT",
+} as const;
+
+export type TaskPriority = (typeof TaskPriority)[keyof typeof TaskPriority];
+
+export interface TaskResponse {
+  id: string;
+  organisationId: string;
+  projectId: string;
+  projectName: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  title: string;
+  description: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  estimatedMinutes: number | null;
+  dueDate: string | null; // ISO-8601
+  assigneeId: string | null;
+  assigneeName: string | null;
+  createdById: string;
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface TaskCategoryResponse {
+  id: string;
+  organisationId: string;
+  name: string;
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface TaskCommentResponse {
+  id: string;
+  taskId: string;
+  userId: string;
+  userEmail: string;
+  body: string;
+  createdAt: string; // ISO-8601
+}
+
+export interface TaskAttachmentResponse {
+  id: string;
+  taskId: string;
+  storageKey: string;
+  fileName: string;
+  mimeType: string | null;
+  uploadedById: string;
+  createdAt: string; // ISO-8601
+}
+
+export interface CreateTaskCategoryRequest {
+  name: string;
+}
+
+export interface CreateTaskRequest {
+  projectId: string;
+  categoryId?: string;
+  title: string;
+  description?: string;
+  priority?: TaskPriority;
+  estimatedMinutes?: number;
+  dueDate?: string; // ISO-8601
+  assigneeId?: string;
+}
+
+export interface UpdateTaskRequest {
+  categoryId?: string | null;
+  title?: string;
+  description?: string | null;
+  priority?: TaskPriority;
+  estimatedMinutes?: number | null;
+  dueDate?: string | null;
+}
+
+export interface AssignTaskRequest {
+  employeeId: string;
+}
+
+export interface CreateTaskCommentRequest {
+  body: string;
+}
+
+export interface CreateTaskAttachmentRequest {
+  storageKey: string;
+  fileName: string;
+  mimeType?: string;
+}
+
+
 export const OrganisationStatus = {
   ACTIVE: "ACTIVE",
   SUSPENDED: "SUSPENDED",

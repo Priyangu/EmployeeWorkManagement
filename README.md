@@ -7,12 +7,7 @@ ERD, API spec, and milestone plan.
 
 ## Status
 
-**Phase 3 — Organisation & Tenant Isolation Core.** `Organisation` entity with
-tenant-scoped `User`s, a `TenantGuard` that resolves the organisation from the
-JWT on every protected route, an `Auth → Tenant → Roles` guard chain, Super
-Admin organisation create/list/update/suspend/activate, and a working web
-login page. Suspended organisations' users are blocked from logging in, and the
-critical cross-tenant isolation test is enforced in CI.
+**Phase 5 — Projects & Task Categories.** Projects module (CRUD, status lifecycle with validated transitions, terminal `COMPLETED`/`CANCELLED` freeze, date/budget fields, project-manager employee assignment, customer filter) plus Task Categories as a project sub-resource. Covered by unit + e2e tests. Next milestone: Phase 6 — Tasks, Task Comments & Task Attachments.
 
 ## Structure
 
@@ -65,14 +60,16 @@ pnpm dev:web      # http://localhost:3000
 pnpm dev:mobile   # opens Expo dev tools / QR code for Expo Go
 ```
 
-Open http://localhost:3000 — it should show a green health-check response
-from the API, with a link to the Phase 3 login page at http://localhost:3000/login.
+Open http://localhost:3000 — there is a Phase 1 health-check landing page at
+`/`, a working login at `/login`, and a placeholder dashboard at `/dashboard`.
+The Projects module is API-first right now: create a project via the API while
+building Phase 6, or exercise it through the UI when the projects web page lands.
+
 On mobile, the login screen shows "API connectivity: OK" once
 Expo Go can reach the API (use your machine's LAN IP in
 `apps/mobile/.env`, not `localhost`, when testing on a physical device).
 
 ### Smoke-testing auth & tenant isolation
-
 After seeding, confirm login works end to end:
 
 ```bash
