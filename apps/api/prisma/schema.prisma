@@ -54,6 +54,9 @@ model Organisation {
   taskSchedules TaskSchedule[]
   timeEntries TimeEntry[]
   auditLogs AuditLog[]
+  timesheets Timesheet[]
+  attendanceRecords Attendance[]
+  leaveRequests LeaveRequest[]
 
   @@map("organisations")
 }
@@ -81,6 +84,8 @@ model User {
   taskAttachments         TaskAttachment[]
   editedTimeEntries       TimeEntry[]        @relation("TimeEntryEditedBy")
   auditLogs               AuditLog[]
+   approvedTimesheets      Timesheet[]        @relation("TimesheetApprover")
+   approvedLeaveRequests   LeaveRequest[]     @relation("LeaveApprover")
 
   @@index([organisationId])
   @@map("users")
@@ -129,6 +134,9 @@ model Employee {
   assignedByTasks    TaskAssignment[] @relation("AssignmentAssigner")
   schedules          TaskSchedule[]
   timeEntries        TimeEntry[]
+  timesheets         Timesheet[]
+  attendanceRecords  Attendance[]
+  leaveRequests      LeaveRequest[]
 
   @@index([organisationId])
   @@index([teamId])
@@ -365,6 +373,108 @@ model AuditLog {
   @@index([organisationId])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ── Phase 9: Timesheets ──────────────────────────────────────────────────
+// A weekly timesheet aggregating time entries for an employee. Once approved,
+// the timesheet is immutable — corrections create a new version (the critical
+// Phase 9 test). The status lifecycle is draft → submitted → approved/rejected.
+enum TimesheetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model Timesheet {
+  id             String        @id @default(uuid())
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  periodStart    DateTime // Monday 00:00 UTC of the week
+  periodEnd      DateTime // Sunday 23:59 UTC of the week
+  status         TimesheetStatus @default(DRAFT)
+  totalMinutes   Int           @default(0) // aggregated from time entries
+  approvedById   String?
+  approvedBy     User?         @relation("TimesheetApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+  rejectionReason String?
+  version        Int           @default(1) // increments on correction
+  parentTimesheetId String? // links correction to original
+  parentTimesheet  Timesheet?  @relation("TimesheetCorrection", fields: [parentTimesheetId], references: [id], onDelete: SetNull)
+  corrections     Timesheet[]  @relation("TimesheetCorrection")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organisationId, employeeId, periodStart, version])
+  @@index([organisationId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("timesheets")
+}
+
+// ── Phase 9: Attendance ──────────────────────────────────────────────────
+// Clock in/out records for daily attendance tracking. Break minutes are
+// subtracted from the total duration. isLate/isEarlyDeparture are derived
+// at write time against the employee's expected schedule.
+model Attendance {
+  id             String       @id @default(uuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  clockIn        DateTime
+  clockOut       DateTime?
+  breakMinutes   Int          @default(0)
+  isLate         Boolean      @default(false)
+  isEarlyDeparture Boolean    @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organisationId])
+  @@index([employeeId])
+  @@index([clockIn])
+  @@map("attendance")
+}
+
+// ── Phase 9: Leave ───────────────────────────────────────────────────────
+// Leave requests with approval workflow. Types: annual, sick, other.
+// Status: pending → approved/rejected.
+enum LeaveType {
+  ANNUAL
+  SICK
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LeaveRequest {
+  id             String       @id @default(uuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type           LeaveType    @default(ANNUAL)
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?
+  status         LeaveStatus  @default(PENDING)
+  approvedById   String?
+  approvedBy     User?        @relation("LeaveApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+  rejectionReason String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organisationId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("leave_requests")
 }
 
 model TaskAssignment {

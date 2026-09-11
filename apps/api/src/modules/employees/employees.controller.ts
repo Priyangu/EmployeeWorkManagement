@@ -39,15 +39,15 @@ export class EmployeesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateEmployeeDto) {
-    return this.employeesService.create(user.organisationId!, dto);
+    return this.employeesService.create(user.organisationId!, dto, user);
   }
 
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Patch(":id")
   update(
     @CurrentUser() user: RequestUser,
@@ -58,7 +58,7 @@ export class EmployeesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post(":id/disable")
   @HttpCode(HttpStatus.OK)
   disable(@CurrentUser() user: RequestUser, @Param("id") id: string) {
@@ -70,7 +70,7 @@ export class EmployeesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post(":id/enable")
   @HttpCode(HttpStatus.OK)
   enable(@CurrentUser() user: RequestUser, @Param("id") id: string) {

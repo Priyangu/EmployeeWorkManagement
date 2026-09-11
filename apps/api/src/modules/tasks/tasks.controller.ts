@@ -56,7 +56,7 @@ export class TasksController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateTaskDto) {
@@ -64,7 +64,7 @@ export class TasksController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Patch(":id")
   update(
     @CurrentUser() user: RequestUser,
@@ -75,7 +75,7 @@ export class TasksController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER)
+  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post(":id/assign")
   @HttpCode(HttpStatus.OK)
   assign(

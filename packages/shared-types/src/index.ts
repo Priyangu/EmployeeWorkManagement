@@ -398,3 +398,118 @@ export interface LoginRequest {
   email: string;
   password: string;
 }
+
+// ── Phase 9: Timesheets, Attendance & Leave ────────────────────────────────
+
+export const TimesheetStatus = {
+  DRAFT: "DRAFT",
+  SUBMITTED: "SUBMITTED",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const;
+
+export type TimesheetStatus = (typeof TimesheetStatus)[keyof typeof TimesheetStatus];
+
+export const LeaveType = {
+  ANNUAL: "ANNUAL",
+  SICK: "SICK",
+  OTHER: "OTHER",
+} as const;
+
+export type LeaveType = (typeof LeaveType)[keyof typeof LeaveType];
+
+export const LeaveStatus = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const;
+
+export type LeaveStatus = (typeof LeaveStatus)[keyof typeof LeaveStatus];
+
+export interface TimesheetResponse {
+  id: string;
+  organisationId: string;
+  employeeId: string;
+  employeeName: string;
+  periodStart: string; // ISO-8601 (Monday 00:00 UTC)
+  periodEnd: string;   // ISO-8601 (Sunday 23:59 UTC)
+  status: TimesheetStatus;
+  totalMinutes: number;
+  approvedById: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  version: number;
+  parentTimesheetId: string | null;
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface CreateTimesheetRequest {
+  employeeId?: string; // managers may create for someone else; defaults to self
+  periodStart: string; // ISO-8601 (Monday 00:00 UTC)
+}
+
+export interface SubmitTimesheetRequest {
+  // No body fields needed — submission is a state transition.
+  // Rejection reason is provided in the reject call, not submit.
+}
+
+export interface RejectTimesheetRequest {
+  reason: string;
+}
+
+export interface AttendanceResponse {
+  id: string;
+  organisationId: string;
+  employeeId: string;
+  employeeName: string;
+  clockIn: string;  // ISO-8601 (UTC)
+  clockOut: string | null; // ISO-8601 (UTC); null if still clocked in
+  breakMinutes: number;
+  isLate: boolean;
+  isEarlyDeparture: boolean;
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface ClockInRequest {
+  // Server stamps clockIn = now(); optional notes for break/late context.
+}
+
+export interface ClockOutRequest {
+  breakMinutes?: number;
+}
+
+export interface LeaveRequestResponse {
+  id: string;
+  organisationId: string;
+  employeeId: string;
+  employeeName: string;
+  type: LeaveType;
+  startDate: string; // ISO-8601 (UTC)
+  endDate: string;   // ISO-8601 (UTC)
+  reason: string | null;
+  status: LeaveStatus;
+  approvedById: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string; // ISO-8601
+  updatedAt: string; // ISO-8601
+}
+
+export interface CreateLeaveRequestRequest {
+  type: LeaveType;
+  startDate: string; // ISO-8601 (UTC)
+  endDate: string;   // ISO-8601 (UTC)
+  reason?: string;
+}
+
+export interface ApproveLeaveRequestRequest {
+  // Approval is an unconditional state transition; no reason needed.
+}
+
+export interface RejectLeaveRequestRequest {
+  reason: string;
+}

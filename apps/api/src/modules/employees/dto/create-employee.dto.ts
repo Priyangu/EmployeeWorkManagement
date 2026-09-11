@@ -29,7 +29,7 @@ export class CreateEmployeeDto {
   password?: string;
 
   @IsOptional()
-  @IsIn(["ORG_ADMIN", "MANAGER", "EMPLOYEE"])
+  @IsIn(["ORG_ADMIN", "MANAGER", "TEAM_LEAD", "EMPLOYEE"])
   role?: UserRole;
 
   @ValidateIf((o: CreateEmployeeDto) => !o.email && !o.password)

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -14,6 +15,7 @@ import { UserRole } from "@ewm/shared-types";
 import type { Prisma } from "@prisma/client";
 import { Prisma as PrismaRuntime } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import type { RequestUser } from "../auth/strategies/jwt.strategy";
 import type { CreateEmployeeDto } from "./dto/create-employee.dto";
 import type { UpdateEmployeeDto } from "./dto/update-employee.dto";
 
@@ -42,6 +44,7 @@ export class EmployeesService {
   async create(
     organisationId: string,
     dto: CreateEmployeeDto,
+    actor: RequestUser,
   ): Promise<EmployeeResponse> {
     const hasUserId = !!dto.userId;
     const hasCredentials = !!dto.email || !!dto.password;
@@ -56,6 +59,16 @@ export class EmployeesService {
       );
     }
 
+    // RBAC: who is allowed to create which roles. A MANAGER can create
+    // TEAM_LEADs and EMPLOYEEs but not other MANAGERs; a TEAM_LEAD can only
+    // create EMPLOYEEs. ORG_ADMIN is unrestricted (except SUPER_ADMIN, which
+    // is blocked in createWithUser).
+    if (dto.role && dto.role !== UserRole.EMPLOYEE && !this.canCreateRole(actor.role, dto.role)) {
+      throw new ForbiddenException(
+        `Your role (${actor.role}) is not allowed to create a ${dto.role}`,
+      );
+    }
+
     // Validate cross-references against this org before writing anything.
     // Order matters: reference checks first (404s), then the duplicate-email
     // check (409) so a create-then-add flow doesn't produce misleading errors
@@ -64,7 +77,7 @@ export class EmployeesService {
       await this.findTeamInOrgOrThrow(organisationId, dto.teamId);
     }
     if (dto.managerId) {
-      await this.findInOrgOrThrow(organisationId, dto.managerId);
+      await this.assertCanBeManager(organisationId, dto.managerId);
     }
 
     // Reject duplicate emails up-front (409): the unique constraint alone
@@ -187,7 +200,7 @@ export class EmployeesService {
       if (dto.managerId === id) {
         throw new BadRequestException("An employee cannot manage themselves");
       }
-      await this.findInOrgOrThrow(organisationId, dto.managerId);
+      await this.assertCanBeManager(organisationId, dto.managerId);
       await this.assertNoManagerCycle(organisationId, id, dto.managerId);
     }
 
@@ -294,6 +307,42 @@ export class EmployeesService {
       });
       cursor = next?.managerId ?? null;
     }
+  }
+
+  // A manager link is only valid when the target actually holds a management
+  // role in this org — an EMPLOYEE-profile cannot be assigned as someone's
+  // manager (prevents UI filtering being bypassed via a raw API call).
+  private async assertCanBeManager(organisationId: string, managerId: string) {
+    const manager = await this.findInOrgOrThrow(organisationId, managerId);
+    const role = manager.user?.role;
+    if (!this.isManagerRole(role)) {
+      throw new BadRequestException(
+        "Only ORG_ADMIN, MANAGER or TEAM_LEAD employees can be assigned as a manager",
+      );
+    }
+  }
+
+  // Role ladder for creation: ORG_ADMIN may create anything; MANAGER may
+  // create TEAM_LEAD + EMPLOYEE; TEAM_LEAD only EMPLOYEE. EMPLOYEE has no
+  // creation rights (but the controller blocks it before reaching here).
+  private canCreateRole(actorRole: string, targetRole: string): boolean {
+    if (actorRole === UserRole.ORG_ADMIN) return true;
+    if (actorRole === UserRole.MANAGER) {
+      return targetRole === UserRole.TEAM_LEAD || targetRole === UserRole.EMPLOYEE;
+    }
+    if (actorRole === UserRole.TEAM_LEAD) {
+      return targetRole === UserRole.EMPLOYEE;
+    }
+    return false;
+  }
+
+  // Who counts as an assignable manager/reporting line.
+  private isManagerRole(role: string | null | undefined): boolean {
+    return (
+      role === UserRole.ORG_ADMIN ||
+      role === UserRole.MANAGER ||
+      role === UserRole.TEAM_LEAD
+    );
   }
 
   private toResponse(employee: {

@@ -10,6 +10,7 @@ import {
   type SessionUser,
 } from "../../lib/auth";
 import { apiFetch } from "../../lib/api";
+import { Nav } from "../../lib/nav";
 
 export default function TeamsPage() {
   const router = useRouter();
@@ -92,14 +93,8 @@ export default function TeamsPage() {
 
   return (
     <main style={{ padding: "2rem", fontFamily: "system-ui" }}>
+      <Nav user={user} onLogout={handleLogout} />
       <h1>Teams</h1>
-      <p>
-        Signed in as {user?.email} ({user?.role}).{" "}
-        <a href="/dashboard">Dashboard</a> · <a href="/employees">Employees</a> ·{" "}
-        <button type="button" onClick={handleLogout}>
-          Sign out
-        </button>
-      </p>
       {error && (
         <p role="alert" style={{ color: "crimson" }}>
           {error}

@@ -303,7 +303,8 @@ export class TasksService {
       });
       if (assignee?.userId === user.id) return;
     }
-    if (user.role === UserRole.ORG_ADMIN || user.role === UserRole.MANAGER) {
+    if (user.role === UserRole.ORG_ADMIN || user.role === UserRole.MANAGER ||
+      user.role === UserRole.TEAM_LEAD) {
       return;
     }
     throw new ForbiddenException(

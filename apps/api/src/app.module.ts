@@ -12,6 +12,9 @@ import { ProjectsModule } from "./modules/projects/projects.module";
 import { TasksModule } from "./modules/tasks/tasks.module";
 import { SchedulingModule } from "./modules/scheduling/scheduling.module";
 import { TimeTrackingModule } from "./modules/time-tracking/time-tracking.module";
+import { TimesheetsModule } from "./modules/timesheets/timesheets.module";
+import { AttendanceModule } from "./modules/attendance/attendance.module";
+import { LeaveModule } from "./modules/leave/leave.module";
 
 @Module({
   imports: [
@@ -29,9 +32,10 @@ import { TimeTrackingModule } from "./modules/time-tracking/time-tracking.module
     TasksModule,
     SchedulingModule,
     TimeTrackingModule,
-    // Future modules land here, one per domain area, e.g.:
-    // TimesheetsModule, AttendanceModule, LeaveModule, NotificationsModule,
-    // DashboardModule, ReportsModule, AuditModule.
+    // Phase 9: Timesheets, Attendance & Leave
+    TimesheetsModule,
+    AttendanceModule,
+    LeaveModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

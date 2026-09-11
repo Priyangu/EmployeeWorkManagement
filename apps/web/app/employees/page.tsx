@@ -10,6 +10,7 @@ import {
   type SessionUser,
 } from "../../lib/auth";
 import { apiFetch } from "../../lib/api";
+import { Nav } from "../../lib/nav";
 
 export default function EmployeesPage() {
   const router = useRouter();
@@ -25,9 +26,29 @@ export default function EmployeesPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("EMPLOYEE");
   const [teamId, setTeamId] = useState("");
+  const [managerId, setManagerId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const canManage = user?.role === "ORG_ADMIN" || user?.role === "MANAGER";
+
+  // Only people holding a management role can be someone's manager (the API
+  // enforces the same rule server-side).
+  const managerCandidates = employees.filter(
+    (e) =>
+      e.role === "MANAGER" ||
+      e.role === "ORG_ADMIN" ||
+      e.role === "TEAM_LEAD",
+  );
+
+  // Roles the signed-in user is allowed to create (mirrors the API ladder).
+  const creatableRoles =
+    user?.role === "ORG_ADMIN"
+      ? ["EMPLOYEE", "TEAM_LEAD", "MANAGER", "ORG_ADMIN"]
+      : user?.role === "MANAGER"
+        ? ["EMPLOYEE", "TEAM_LEAD"]
+        : user?.role === "TEAM_LEAD"
+          ? ["EMPLOYEE"]
+          : [];
 
   useEffect(() => {
     const sessionUser = getSessionUser();
@@ -79,6 +100,7 @@ export default function EmployeesPage() {
           role,
           name,
           ...(teamId ? { teamId } : {}),
+          ...(managerId ? { managerId } : {}),
         }),
       });
       setEmployees((prev) => [...prev, created]);
@@ -88,6 +110,7 @@ export default function EmployeesPage() {
       setPassword("");
       setRole("EMPLOYEE");
       setTeamId("");
+      setManagerId("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {
@@ -119,21 +142,43 @@ export default function EmployeesPage() {
     }
   }
 
+  // Assign or change an employee's manager (uncontrolled per-row select, so
+  // the current value is read from the form at submit time). Empty selection
+  // sends null to clear the reporting line.
+  async function handleAssignManager(
+    event: FormEvent<HTMLFormElement>,
+    emp: EmployeeResponse,
+  ) {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+    const formData = new FormData(event.currentTarget);
+    const raw = String(formData.get("managerId") ?? "");
+    const newManagerId = raw === "" ? null : raw;
+    try {
+      const updated = await apiFetch<EmployeeResponse>(`/employees/${emp.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ managerId: newManagerId }),
+      });
+      setEmployees((prev) =>
+        prev.map((e) => (e.id === updated.id ? updated : e)),
+      );
+      setNotice(
+        updated.managerName
+          ? `${updated.name} now reports to ${updated.managerName}.`
+          : `${updated.name} no longer has a manager assigned.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+    }
+  }
+
   if (!user) return null;
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <header style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <h1>Employees</h1>
-        <span style={{ color: "#666" }}>
-          {user.email} ({user.role})
-        </span>
-        <span style={{ flex: 1 }} />
-        <a href="/dashboard">Dashboard</a>
-        <button type="button" onClick={handleLogout}>
-          Sign out
-        </button>
-      </header>
+      <Nav user={user} onLogout={handleLogout} />
+      <h1>Employees</h1>
 
       {error && <p style={{ color: "crimson" }}>{error}</p>}
       {notice && <p style={{ color: "green" }}>{notice}</p>}
@@ -150,6 +195,7 @@ export default function EmployeesPage() {
               <th>Email</th>
               <th>Role</th>
               <th>Team</th>
+              <th>Manager</th>
               <th>Status</th>
               {canManage && <th>Actions</th>}
             </tr>
@@ -161,6 +207,38 @@ export default function EmployeesPage() {
                 <td>{emp.email ?? "-"}</td>
                 <td>{emp.role ?? "-"}</td>
                 <td>{emp.teamName ?? "-"}</td>
+                <td>
+                  <span>{emp.managerName ?? "—"}</span>
+                  {canManage && (
+                    <form
+                      onSubmit={(e) => void handleAssignManager(e, emp)}
+                      style={{
+                        display: "flex",
+                        gap: 4,
+                        alignItems: "center",
+                        marginTop: 4,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <select
+                        name="managerId"
+                        defaultValue={emp.managerId ?? ""}
+                        style={{ maxWidth: 160 }}
+                        aria-label={`Change manager for ${emp.name}`}
+                      >
+                        <option value="">— None —</option>
+                        {managerCandidates
+                          .filter((c) => c.id !== emp.id)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} ({c.role})
+                            </option>
+                          ))}
+                      </select>
+                      <button type="submit">Change</button>
+                    </form>
+                  )}
+                </td>
                 <td>{emp.employmentStatus}</td>
                 {canManage && (
                   <td>
@@ -178,7 +256,7 @@ export default function EmployeesPage() {
             ))}
             {employees.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 6 : 5}>
+                <td colSpan={canManage ? 7 : 6}>
                   No employees yet - add the first below.
                 </td>
               </tr>
@@ -233,8 +311,15 @@ export default function EmployeesPage() {
                 style={{ display: "block", width: "100%" }}
               >
                 <option value="EMPLOYEE">Employee</option>
-                <option value="MANAGER">Manager</option>
-                <option value="ORG_ADMIN">Org admin</option>
+                {creatableRoles.includes("TEAM_LEAD") && (
+                  <option value="TEAM_LEAD">Team lead</option>
+                )}
+                {creatableRoles.includes("MANAGER") && (
+                  <option value="MANAGER">Manager</option>
+                )}
+                {creatableRoles.includes("ORG_ADMIN") && (
+                  <option value="ORG_ADMIN">Org admin</option>
+                )}
               </select>
             </label>
             <label>
@@ -248,6 +333,21 @@ export default function EmployeesPage() {
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Manager (optional)
+              <select
+                value={managerId}
+                onChange={(e) => setManagerId(e.target.value)}
+                style={{ display: "block", width: "100%" }}
+              >
+                <option value="">No manager</option>
+                {managerCandidates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </select>
