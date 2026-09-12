@@ -107,6 +107,10 @@ export interface EmployeeResponse {
   workingHours: WorkingHours | null;
   employmentStatus: EmploymentStatus;
   isActive: boolean | null; // linked User.isActive, null when no linked user
+  emergencyContactName: string | null;
+  emergencyContactRelationship: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactEmail: string | null;
   createdAt: string; // ISO-8601
   updatedAt: string; // ISO-8601
 }

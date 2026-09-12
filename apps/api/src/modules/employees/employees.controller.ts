@@ -23,22 +23,24 @@ import { UpdateEmployeeDto } from "./dto/update-employee.dto";
 // All routes are tenant-scoped (AuthGuard → TenantGuard): the organisation
 // always comes from the JWT, never from the request body or params.
 // Reads are open to any org member; writes need ORG_ADMIN or MANAGER.
-@UseGuards(AuthGuard, TenantGuard)
 @Controller("employees")
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
+  // ── Tenant-scoped routes ───────────────────────────────────────────
+  @UseGuards(AuthGuard, TenantGuard)
   @Get()
   list(@CurrentUser() user: RequestUser) {
     return this.employeesService.list(user.organisationId!, user);
   }
 
+  @UseGuards(AuthGuard, TenantGuard)
   @Get(":id")
   getById(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.employeesService.getById(user.organisationId!, id, user);
   }
 
-  @UseGuards(RolesGuard)
+  @UseGuards(AuthGuard, TenantGuard, RolesGuard)
   @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -46,7 +48,7 @@ export class EmployeesController {
     return this.employeesService.create(user.organisationId!, dto, user);
   }
 
-  @UseGuards(RolesGuard)
+  @UseGuards(AuthGuard, TenantGuard, RolesGuard)
   @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Patch(":id")
   update(
@@ -54,10 +56,10 @@ export class EmployeesController {
     @Param("id") id: string,
     @Body() dto: UpdateEmployeeDto,
   ) {
-    return this.employeesService.update(user.organisationId!, id, dto);
+    return this.employeesService.update(user.organisationId!, id, dto, user);
   }
 
-  @UseGuards(RolesGuard)
+  @UseGuards(AuthGuard, TenantGuard, RolesGuard)
   @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post(":id/disable")
   @HttpCode(HttpStatus.OK)
@@ -66,10 +68,11 @@ export class EmployeesController {
       user.organisationId!,
       id,
       "DISABLED",
+      user,
     );
   }
 
-  @UseGuards(RolesGuard)
+  @UseGuards(AuthGuard, TenantGuard, RolesGuard)
   @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @Post(":id/enable")
   @HttpCode(HttpStatus.OK)
@@ -78,6 +81,16 @@ export class EmployeesController {
       user.organisationId!,
       id,
       "ACTIVE",
+      user,
     );
+  }
+
+  // ── SUPER_ADMIN platform route (no tenant context) ─────────────────
+  // SUPER_ADMIN sees all ORG_ADMINs across the platform.
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Get("platform/admins")
+  listPlatformAdmins(@CurrentUser() user: RequestUser) {
+    return this.employeesService.listPlatformAdmins(user);
   }
 }

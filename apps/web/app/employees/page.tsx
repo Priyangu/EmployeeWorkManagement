@@ -29,10 +29,20 @@ export default function EmployeesPage() {
   const [managerId, setManagerId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit modal state
+  const [editing, setEditing] = useState<EmployeeResponse | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editTeamId, setEditTeamId] = useState("");
+  const [editManagerId, setEditManagerId] = useState("");
+  const [editEmergencyName, setEditEmergencyName] = useState("");
+  const [editEmergencyRelationship, setEditEmergencyRelationship] = useState("");
+  const [editEmergencyPhone, setEditEmergencyPhone] = useState("");
+  const [editEmergencyEmail, setEditEmergencyEmail] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   const canManage = user?.role === "ORG_ADMIN" || user?.role === "MANAGER";
 
-  // Only people holding a management role can be someone's manager (the API
-  // enforces the same rule server-side).
   const managerCandidates = employees.filter(
     (e) =>
       e.role === "MANAGER" ||
@@ -40,7 +50,6 @@ export default function EmployeesPage() {
       e.role === "TEAM_LEAD",
   );
 
-  // Roles the signed-in user is allowed to create (mirrors the API ladder).
   const creatableRoles =
     user?.role === "ORG_ADMIN"
       ? ["EMPLOYEE", "TEAM_LEAD", "MANAGER", "ORG_ADMIN"]
@@ -115,6 +124,36 @@ export default function EmployeesPage() {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    setError(null);
+    setNotice(null);
+    setEditSubmitting(true);
+    try {
+      const updated = await apiFetch<EmployeeResponse>(`/employees/${editing.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editName.trim(),
+          phone: editPhone.trim() || undefined,
+          teamId: editTeamId || undefined,
+          managerId: editManagerId || undefined,
+          emergencyContactName: editEmergencyName.trim() || undefined,
+          emergencyContactRelationship: editEmergencyRelationship.trim() || undefined,
+          emergencyContactPhone: editEmergencyPhone.trim() || undefined,
+          emergencyContactEmail: editEmergencyEmail.trim() || undefined,
+        }),
+      });
+      setNotice(`Updated ${updated.name}`);
+      setEditing(null);
+      setEmployees((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update employee");
+    } finally {
+      setEditSubmitting(false);
     }
   }
 
@@ -274,89 +313,71 @@ export default function EmployeesPage() {
           >
             <label>
               Name
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                minLength={2}
-                style={{ display: "block", width: "100%" }}
-              />
+              <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} style={{ display: "block", width: "100%" }} />
             </label>
             <label>
               Email
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={{ display: "block", width: "100%" }}
-              />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ display: "block", width: "100%" }} />
             </label>
             <label>
               Temporary password
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                style={{ display: "block", width: "100%" }}
-              />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} style={{ display: "block", width: "100%" }} />
             </label>
             <label>
               Role
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                style={{ display: "block", width: "100%" }}
-              >
+              <select value={role} onChange={(e) => setRole(e.target.value)} style={{ display: "block", width: "100%" }}>
                 <option value="EMPLOYEE">Employee</option>
-                {creatableRoles.includes("TEAM_LEAD") && (
-                  <option value="TEAM_LEAD">Team lead</option>
-                )}
-                {creatableRoles.includes("MANAGER") && (
-                  <option value="MANAGER">Manager</option>
-                )}
-                {creatableRoles.includes("ORG_ADMIN") && (
-                  <option value="ORG_ADMIN">Org admin</option>
-                )}
+                {creatableRoles.includes("TEAM_LEAD") && <option value="TEAM_LEAD">Team lead</option>}
+                {creatableRoles.includes("MANAGER") && <option value="MANAGER">Manager</option>}
+                {creatableRoles.includes("ORG_ADMIN") && <option value="ORG_ADMIN">Org admin</option>}
               </select>
             </label>
             <label>
               Team (optional)
-              <select
-                value={teamId}
-                onChange={(e) => setTeamId(e.target.value)}
-                style={{ display: "block", width: "100%" }}
-              >
+              <select value={teamId} onChange={(e) => setTeamId(e.target.value)} style={{ display: "block", width: "100%" }}>
                 <option value="">No team</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
+                {teams.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
               </select>
             </label>
             <label>
               Manager (optional)
-              <select
-                value={managerId}
-                onChange={(e) => setManagerId(e.target.value)}
-                style={{ display: "block", width: "100%" }}
-              >
+              <select value={managerId} onChange={(e) => setManagerId(e.target.value)} style={{ display: "block", width: "100%" }}>
                 <option value="">No manager</option>
-                {managerCandidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                {managerCandidates.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </label>
-            <button type="submit" disabled={submitting}>
-              {submitting ? "Adding..." : "Add employee"}
-            </button>
+            <button type="submit" disabled={submitting}>{submitting ? "Adding..." : "Add employee"}</button>
           </form>
         </section>
+      )}
+
+      {editing && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEditing(null)}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <h2>Edit {editing.name}</h2>
+            <form onSubmit={(e) => void handleEditSubmit(e)} style={{ display: "grid", gap: 12 }}>
+              <label>Name<input value={editName} onChange={(e) => setEditName(e.target.value)} required style={{ display: "block", width: "100%" }} /></label>
+              <label>Phone<input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} style={{ display: "block", width: "100%" }} /></label>
+              <label>Team<select value={editTeamId} onChange={(e) => setEditTeamId(e.target.value)} style={{ display: "block", width: "100%" }}>
+                <option value="">No team</option>{teams.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
+              </select></label>
+              <label>Manager<select value={editManagerId} onChange={(e) => setEditManagerId(e.target.value)} style={{ display: "block", width: "100%" }}>
+                <option value="">No manager</option>{managerCandidates.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select></label>
+              <fieldset style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12 }}>
+                <legend>Emergency contact</legend>
+                <label>Name<input value={editEmergencyName} onChange={(e) => setEditEmergencyName(e.target.value)} style={{ display: "block", width: "100%" }} /></label>
+                <label>Relationship<input value={editEmergencyRelationship} onChange={(e) => setEditEmergencyRelationship(e.target.value)} style={{ display: "block", width: "100%" }} /></label>
+                <label>Phone<input value={editEmergencyPhone} onChange={(e) => setEditEmergencyPhone(e.target.value)} style={{ display: "block", width: "100%" }} /></label>
+                <label>Email<input type="email" value={editEmergencyEmail} onChange={(e) => setEditEmergencyEmail(e.target.value)} style={{ display: "block", width: "100%" }} /></label>
+              </fieldset>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="submit" disabled={editSubmitting}>{editSubmitting ? "Saving..." : "Save changes"}</button>
+                <button type="button" onClick={() => setEditing(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </main>
   );

@@ -173,6 +173,18 @@ export class TasksService {
         if (!assignee) {
           throw new NotFoundException("Assignee not found in this organisation");
         }
+        // TEAM_LEAD may only assign tasks to employees within their own team.
+        if (user.role === UserRole.TEAM_LEAD) {
+          const assignerEmp = await tx.employee.findFirst({
+            where: { userId: user.id, organisationId, deletedAt: null },
+            select: { teamId: true },
+          });
+          if (!assignerEmp?.teamId || assignee.teamId !== assignerEmp.teamId) {
+            throw new ForbiddenException(
+              "You may only assign tasks to members of your own team",
+            );
+          }
+        }
         await tx.taskAssignment.create({
           data: {
             taskId: created.id,
@@ -258,6 +270,19 @@ export class TasksService {
     });
     if (!assignee) {
       throw new NotFoundException("Assignee not found in this organisation");
+    }
+
+    // TEAM_LEAD may only assign tasks to employees within their own team.
+    if (user.role === UserRole.TEAM_LEAD) {
+      const assignerEmp = await this.prisma.employee.findFirst({
+        where: { userId: user.id, organisationId, deletedAt: null },
+        select: { teamId: true },
+      });
+      if (!assignerEmp?.teamId || assignee.teamId !== assignerEmp.teamId) {
+        throw new ForbiddenException(
+          "You may only assign tasks to members of your own team",
+        );
+      }
     }
 
     const task = await this.prisma.$transaction(async (tx) => {

@@ -37,6 +37,18 @@ export class EmployeesService {
     return employees.map((e) => this.toResponse(e));
   }
 
+  async listPlatformAdmins(actor: RequestUser): Promise<EmployeeResponse[]> {
+    if (actor.role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException("Only SUPER_ADMIN can access this endpoint");
+    }
+    const employees = await this.prisma.employee.findMany({
+      where: { deletedAt: null, user: { role: UserRole.ORG_ADMIN } },
+      orderBy: { createdAt: "asc" },
+      include: { user: true, team: true, manager: true },
+    });
+    return employees.map((e) => this.toResponse(e));
+  }
+
   async getById(organisationId: string, id: string, actor: RequestUser): Promise<EmployeeResponse> {
     const employee = await this.findInOrgOrThrow(organisationId, id);
     const visibility = await this.employeeVisibility(organisationId, actor);
@@ -45,11 +57,18 @@ export class EmployeesService {
   }
 
   private async employeeVisibility(organisationId: string, actor: RequestUser): Promise<Prisma.EmployeeWhereInput> {
-    if (actor.role === UserRole.ORG_ADMIN) return {};
+    // SUPER_ADMIN sees all ORG_ADMINs across the platform (no org filter).
+    if (actor.role === UserRole.SUPER_ADMIN) {
+      return { user: { role: UserRole.ORG_ADMIN } };
+    }
+    // ORG_ADMIN sees only managers (the org's leadership ladder).
+    if (actor.role === UserRole.ORG_ADMIN) return { user: { role: UserRole.MANAGER } };
     const self = await this.prisma.employee.findFirst({ where: { organisationId, userId: actor.id, deletedAt: null }, select: { id: true, teamId: true } });
     if (!self) return { id: "00000000-0000-0000-0000-000000000000" };
     if (actor.role === UserRole.EMPLOYEE) return { id: self.id };
+    // MANAGER sees all individual contributors and team leads (their direct reports tree).
     if (actor.role === UserRole.MANAGER) return { user: { role: { in: [UserRole.EMPLOYEE, UserRole.TEAM_LEAD] } } };
+    // TEAM_LEAD sees only members of their own team.
     if (actor.role === UserRole.TEAM_LEAD) return self.teamId ? { teamId: self.teamId } : { id: self.id };
     return { id: self.id };
   }
@@ -91,6 +110,14 @@ export class EmployeesService {
     }
     if (dto.managerId) {
       await this.assertCanBeManager(organisationId, dto.managerId);
+    }
+
+    // TEAM_LEAD may only create employees within their own team.
+    if (actor.role === UserRole.TEAM_LEAD && dto.teamId) {
+      const actorEmp = await this.findSelfEmployee(organisationId, actor.id);
+      if (!actorEmp || actorEmp.teamId !== dto.teamId) {
+        throw new ForbiddenException("You may only create employees within your own team");
+      }
     }
 
     // Reject duplicate emails up-front (409): the unique constraint alone
@@ -203,8 +230,12 @@ export class EmployeesService {
     organisationId: string,
     id: string,
     dto: UpdateEmployeeDto,
+    actor: RequestUser,
   ): Promise<EmployeeResponse> {
     const existing = await this.findInOrgOrThrow(organisationId, id);
+
+    // TEAM_LEAD may only mutate employees within their own team.
+    await this.assertTeamLeadMutationAccess(actor, organisationId, existing);
 
     if (dto.teamId !== undefined && dto.teamId !== null) {
       await this.findTeamInOrgOrThrow(organisationId, dto.teamId);
@@ -231,6 +262,10 @@ export class EmployeesService {
                 : (dto.workingHours as Prisma.InputJsonValue),
           }
         : {}),
+      ...(dto.emergencyContactName !== undefined ? { emergencyContactName: dto.emergencyContactName } : {}),
+      ...(dto.emergencyContactRelationship !== undefined ? { emergencyContactRelationship: dto.emergencyContactRelationship } : {}),
+      ...(dto.emergencyContactPhone !== undefined ? { emergencyContactPhone: dto.emergencyContactPhone } : {}),
+      ...(dto.emergencyContactEmail !== undefined ? { emergencyContactEmail: dto.emergencyContactEmail } : {}),
     };
 
     const employee = await this.prisma.employee.update({
@@ -247,8 +282,12 @@ export class EmployeesService {
     organisationId: string,
     id: string,
     status: EmploymentStatus,
+    actor: RequestUser,
   ): Promise<EmployeeResponse> {
     const existing = await this.findInOrgOrThrow(organisationId, id);
+
+    // TEAM_LEAD may only disable/enable employees within their own team.
+    await this.assertTeamLeadMutationAccess(actor, organisationId, existing);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.employee.update({
@@ -298,6 +337,14 @@ export class EmployeesService {
       throw new NotFoundException("Team not found in this organisation");
     }
     return team;
+  }
+
+  // Find the employee record for a given user in an organisation.
+  // Used for team-lead mutation access checks.
+  private async findSelfEmployee(organisationId: string, userId: string) {
+    return this.prisma.employee.findFirst({
+      where: { organisationId, userId, deletedAt: null },
+    });
   }
 
   // Walk the manager chain up from the proposed manager; if we reach the
@@ -358,6 +405,23 @@ export class EmployeesService {
     );
   }
 
+  // TEAM_LEAD may only mutate (update / disable / enable) employees that belong
+  // to their own team. ORG_ADMIN and MANAGER are unrestricted (already gated by
+  // the controller's @Roles guard).
+  private async assertTeamLeadMutationAccess(
+    actor: RequestUser,
+    organisationId: string,
+    target: { id: string; teamId: string | null },
+  ): Promise<void> {
+    if (actor.role !== UserRole.TEAM_LEAD) return;
+    const actorEmp = await this.findSelfEmployee(organisationId, actor.id);
+    if (!actorEmp || !actorEmp.teamId || actorEmp.teamId !== target.teamId) {
+      throw new ForbiddenException(
+        "You may only manage employees within your own team",
+      );
+    }
+  }
+
   private toResponse(employee: {
     id: string;
     organisationId: string;
@@ -372,6 +436,10 @@ export class EmployeesService {
     timeZone: string;
     workingHours: unknown;
     employmentStatus: string;
+    emergencyContactName?: string | null;
+    emergencyContactRelationship?: string | null;
+    emergencyContactPhone?: string | null;
+    emergencyContactEmail?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): EmployeeResponse {
@@ -391,6 +459,10 @@ export class EmployeesService {
       workingHours: (employee.workingHours as WorkingHours | null) ?? null,
       employmentStatus: employee.employmentStatus as EmploymentStatus,
       isActive: employee.user?.isActive ?? null,
+      emergencyContactName: employee.emergencyContactName ?? null,
+      emergencyContactRelationship: employee.emergencyContactRelationship ?? null,
+      emergencyContactPhone: employee.emergencyContactPhone ?? null,
+      emergencyContactEmail: employee.emergencyContactEmail ?? null,
       createdAt: employee.createdAt.toISOString(),
       updatedAt: employee.updatedAt.toISOString(),
     };

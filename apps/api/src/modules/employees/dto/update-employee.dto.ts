@@ -1,4 +1,5 @@
 import {
+  IsEmail,
   IsObject,
   IsOptional,
   IsString,
@@ -37,4 +38,23 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsObject()
   workingHours?: Record<string, unknown> | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  emergencyContactName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  emergencyContactRelationship?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  emergencyContactPhone?: string | null;
+
+  @IsOptional()
+  @IsEmail()
+  emergencyContactEmail?: string | null;
 }
