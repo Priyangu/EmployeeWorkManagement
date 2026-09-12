@@ -55,6 +55,7 @@ export class TasksService {
 
   async list(
     organisationId: string,
+    user: RequestUser,
     filters: {
       projectId?: string;
       assigneeId?: string;
@@ -63,10 +64,12 @@ export class TasksService {
       dueTo?: string;
     } = {},
   ): Promise<TaskResponse[]> {
+    const visibility = await this.visibilityFilter(organisationId, user, filters.assigneeId);
     const tasks = await this.prisma.task.findMany({
       where: {
         organisationId,
         deletedAt: null,
+        ...visibility,
         ...(filters.projectId ? { projectId: filters.projectId } : {}),
         ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
         ...(filters.status ? { status: filters.status as TaskStatus } : {}),
@@ -85,10 +88,51 @@ export class TasksService {
     return tasks.map((t) => this.toResponse(t));
   }
 
-  async getById(organisationId: string, id: string): Promise<TaskResponse> {
+  async getById(organisationId: string, user: RequestUser, id: string): Promise<TaskResponse> {
     const task = await this.findInOrgOrThrow(organisationId, id);
-    if (task.assigneeId) await this.notifyAssignment(organisationId, task.id, task.title, task.assigneeId);
+    await this.assertCanSeeTask(organisationId, user, task.assigneeId);
     return this.toResponse(task);
+  }
+
+  private async visibilityFilter(
+    organisationId: string,
+    user: RequestUser,
+    requestedAssigneeId?: string,
+  ): Promise<{ assigneeId?: string | { in: string[] }}> {
+    if (user.role === "ORG_ADMIN" || user.role === "MANAGER") {
+      return requestedAssigneeId ? { assigneeId: requestedAssigneeId } : {};
+    }
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId: user.id, organisationId, deletedAt: null },
+      select: { id: true, teamId: true },
+    });
+    if (!employee) return { assigneeId: "00000000-0000-0000-0000-000000000000" };
+    if (user.role === "EMPLOYEE") {
+      if (requestedAssigneeId && requestedAssigneeId !== employee.id) {
+        throw new ForbiddenException("You may only view your assigned tasks");
+      }
+      return { assigneeId: employee.id };
+    }
+    if (user.role === "TEAM_LEAD") {
+      const memberIds = employee.teamId
+        ? (await this.prisma.employee.findMany({ where: { organisationId, teamId: employee.teamId, deletedAt: null }, select: { id: true } })).map((item) => item.id)
+        : [employee.id];
+      if (requestedAssigneeId && !memberIds.includes(requestedAssigneeId)) {
+        throw new ForbiddenException("You may only view tasks for your team");
+      }
+      return { assigneeId: { in: memberIds } };
+    }
+    return {};
+  }
+
+  private async assertCanSeeTask(organisationId: string, user: RequestUser, assigneeId: string | null): Promise<void> {
+    const visibility = await this.visibilityFilter(organisationId, user, assigneeId ?? undefined);
+    if (visibility.assigneeId && typeof visibility.assigneeId === "string" && visibility.assigneeId !== assigneeId) {
+      throw new ForbiddenException("You may not view this task");
+    }
+    if (visibility.assigneeId && typeof visibility.assigneeId !== "string" && !visibility.assigneeId.in.includes(assigneeId ?? "")) {
+      throw new ForbiddenException("You may not view this task");
+    }
   }
 
   async create(

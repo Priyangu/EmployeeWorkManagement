@@ -42,7 +42,7 @@ export class TasksController {
     @Query("dueFrom") dueFrom?: string,
     @Query("dueTo") dueTo?: string,
   ) {
-    return this.tasksService.list(user.organisationId!, {
+    return this.tasksService.list(user.organisationId!, user, {
       ...(projectId ? { projectId } : {}),
       ...(assigneeId ? { assigneeId } : {}),
       ...(status ? { status } : {}),
@@ -52,7 +52,7 @@ export class TasksController {
 
   @Get(":id")
   getById(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.tasksService.getById(user.organisationId!, id);
+    return this.tasksService.getById(user.organisationId!, user, id);
   }
 
   @UseGuards(RolesGuard)

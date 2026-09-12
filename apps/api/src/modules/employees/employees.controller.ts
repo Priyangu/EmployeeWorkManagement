@@ -30,12 +30,12 @@ export class EmployeesController {
 
   @Get()
   list(@CurrentUser() user: RequestUser) {
-    return this.employeesService.list(user.organisationId!);
+    return this.employeesService.list(user.organisationId!, user);
   }
 
   @Get(":id")
   getById(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.employeesService.getById(user.organisationId!, id);
+    return this.employeesService.getById(user.organisationId!, id, user);
   }
 
   @UseGuards(RolesGuard)

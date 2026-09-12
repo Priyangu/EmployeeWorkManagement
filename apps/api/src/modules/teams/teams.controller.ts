@@ -29,7 +29,7 @@ export class TeamsController {
 
   @Get()
   list(@CurrentUser() user: RequestUser) {
-    return this.teamsService.list(user.organisationId!);
+    return this.teamsService.list(user.organisationId!, user);
   }
 
   @Get(":id")

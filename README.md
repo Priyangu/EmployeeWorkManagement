@@ -7,20 +7,44 @@ ERD, API spec, and milestone plan.
 
 ## Status
 
-**Phase 5 & 6 — Projects, Task Categories & Tasks.** The Project module supports full CRUD, a validated status lifecycle (PLANNED → ACTIVE → ON_HOLD → COMPLETED/CANCELLED with terminal-state freeze, so a finished project can never be silently reopened), date/budget fields, project-manager assignment to an org employee, and customer/status filtering. Task Categories are a lightweight per-organisation dropdown list with duplicate detection. The Tasks module adds create/update/assign with an auditable assignment history, a workflow-transition gateway (`/start`, `/pause`, `/resume`, `/complete` — terminal COMPLETED/CANCELLED tasks are locked), comments, and attachment metadata, all behind the Auth → Tenant → Roles guard chain with assignee-or-writer enforcement on workflow actions. All endpoints are tenant-scoped by construction.
+**Phases 1-12 complete** — monorepo scaffold through mobile application
+completion. The API, web, and mobile apps are all functional. Role-based access
+control is enforced server-side across employees, tasks, and teams.
 
-**Phase 7 — Scheduling.** The Scheduling module adds `GET /schedule` (week-window listing with `employeeId` filter), `POST /schedule`, `PATCH /schedule/:id` (move/reassign for drag-reschedule), and `DELETE /schedule/:id`, all tenant-scoped behind the Auth → Tenant → Roles chain (reads open to any org member, writes restricted to ORG_ADMIN/MANAGER/TEAM_LEAD). Overlaps for the same employee surface as `overlaps` + `conflictIds` warning flags, never hard errors. The web `/schedule` page renders a no-dependency week grid (rows = employees, columns = Mon–Sun) with Move/Remove controls and a create form converting local time to UTC ISO-8601.
+**Phase 9 — Timesheets, Attendance & Leave.** The Timesheets module supports
+creating a weekly timesheet from completed time entries, submit/approve/reject
+workflow, and an immutable-after-approval rule with an auditable correction flow
+(`POST /:id/correct` creates a new DRAFT version rather than mutating the
+approved snapshot). Attendance supports clock in/out with break minutes and
+late/early-departure flags. Leave supports requesting, approving, and rejecting
+leave. All three have web UI pages.
+
+**Phase 10-11 — Role-Based Visibility & Access Control.** Server-side visibility
+filters enforce that each role sees only its own data: EMPLOYEE sees only their
+own employee record and assigned tasks; TEAM_LEAD sees their own team's
+employees and org tasks; MANAGER sees employees/team leads and org tasks;
+ORG_ADMIN has unrestricted tenant visibility; SUPER_ADMIN gets a tenant-only
+dashboard. Web navigation is role-conditional.
 
 | Phase | Milestone | Status |
 |---|---|---|
-| 1–3 | Monorepo scaffold, auth, organisations & tenant isolation | ✅ Done (web login + dashboard) |
+| 1-3 | Monorepo scaffold, auth, organisations & tenant isolation | ✅ Done (web login + dashboard) |
 | 4 | Employees & Teams (lifecycle, disable/enable, tenant isolation) | ✅ Done (API + web) |
-| 5–6 | Projects, task categories & tasks (RBAC, status workflow) | ✅ Done (API) |
+| 5-6 | Projects, task categories & tasks (RBAC, status workflow) | ✅ Done (API + web) |
 | 7 | Scheduling (TaskSchedule, overlap warnings, week view) | ✅ Done (API + web) |
 | 8 | Time tracking (timer, manual entry, audited edits) | ✅ Done (API + web + mobile) |
-| 9–13 | Timesheets/attendance/leave, dashboard, reports & notifications, mobile completion, testing hardening | ⬜ Planned |
+| 9 | Timesheets, attendance & leave (approval immutability) | ✅ Done (API + web) |
+| 10-11 | Role-based visibility & access control | ✅ Done (API + web) |
+| 12 | Application dashboards & reports/notifications | ✅ Done (web + mobile) |
 
-See `docs/architecture.md` Section F for the full phase breakdown.
+**Still pending for complete role implementation:**
+- Mobile role-specific management tabs and manager task creation
+- Strict team-lead mutation restrictions for every employee/team endpoint
+- SUPER_ADMIN tenant creation with first ORG_ADMIN provisioning
+- Org-admin emergency contact flow
+
+See `docs/architecture.md` Sections F and H for the full phase breakdown and
+deferred work.
 
 ## Structure
 
@@ -73,13 +97,12 @@ pnpm dev:web      # http://localhost:3000
 pnpm dev:mobile   # opens Expo dev tools / QR code for Expo Go
 ```
 
-Open http://localhost:3000 — there is a Phase 1 health-check landing page at
-`/`, a working login at `/login`, a placeholder dashboard at `/dashboard`,
-Phase 4 admin pages for **employees** (`/employees`) and **teams**
-(`/teams`), a Phase 7 scheduling week view at `/schedule`, and a Phase 8
-time tracking page at `/time-tracking` once signed in. Projects and Tasks
-are API-first for now; web UI for those lands when the corresponding
-screens are built.
+Open http://localhost:3000 — there is a health-check landing page at `/`, a
+working login at `/login`, a dashboard at `/dashboard`, and authenticated pages
+for **employees** (`/employees`), **teams** (`/teams`), **schedule**
+(`/schedule`), **time tracking** (`/time-tracking`), **timesheets**
+(`/timesheets`), **attendance** (`/attendance`), **leave** (`/leave`),
+**tasks** (`/tasks`), and **notifications** (`/notifications`).
 
 On mobile, the login screen shows "API connectivity: OK" once
 Expo Go can reach the API (use your machine's LAN IP in
@@ -135,7 +158,8 @@ API-specific (run with `pnpm --filter @ewm/api <script>`):
 
 ## Next milestone
 
-Phase 9 — Timesheets & Attendance & Leave: weekly/daily/monthly timesheet
-aggregation, submit/approve/reject flow with immutability after approval;
-clock in/out; leave request/approval. See `docs/architecture.md` Section F
-for the full phase breakdown.
+Close the four remaining Phase 10-11 gaps (mobile role-specific tabs,
+strict team-lead mutation restrictions, SUPER_ADMIN tenant + ORG_ADMIN
+provisioning, org-admin emergency contact flow), then proceed to Phase 15
+(platform administration), Phase 13 (testing hardening), and Phase 14
+(deployment). See `docs/architecture.md` for details.

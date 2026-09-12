@@ -27,18 +27,31 @@ import type { UpdateEmployeeDto } from "./dto/update-employee.dto";
 export class EmployeesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(organisationId: string): Promise<EmployeeResponse[]> {
+  async list(organisationId: string, actor: RequestUser): Promise<EmployeeResponse[]> {
+    const visibility = await this.employeeVisibility(organisationId, actor);
     const employees = await this.prisma.employee.findMany({
-      where: { organisationId, deletedAt: null },
+      where: { organisationId, deletedAt: null, ...visibility },
       orderBy: { createdAt: "asc" },
       include: { user: true, team: true, manager: true },
     });
     return employees.map((e) => this.toResponse(e));
   }
 
-  async getById(organisationId: string, id: string): Promise<EmployeeResponse> {
+  async getById(organisationId: string, id: string, actor: RequestUser): Promise<EmployeeResponse> {
     const employee = await this.findInOrgOrThrow(organisationId, id);
+    const visibility = await this.employeeVisibility(organisationId, actor);
+    if (visibility.id && visibility.id !== employee.id) throw new ForbiddenException("You may not view this employee");
     return this.toResponse(employee);
+  }
+
+  private async employeeVisibility(organisationId: string, actor: RequestUser): Promise<Prisma.EmployeeWhereInput> {
+    if (actor.role === UserRole.ORG_ADMIN) return {};
+    const self = await this.prisma.employee.findFirst({ where: { organisationId, userId: actor.id, deletedAt: null }, select: { id: true, teamId: true } });
+    if (!self) return { id: "00000000-0000-0000-0000-000000000000" };
+    if (actor.role === UserRole.EMPLOYEE) return { id: self.id };
+    if (actor.role === UserRole.MANAGER) return { user: { role: { in: [UserRole.EMPLOYEE, UserRole.TEAM_LEAD] } } };
+    if (actor.role === UserRole.TEAM_LEAD) return self.teamId ? { teamId: self.teamId } : { id: self.id };
+    return { id: self.id };
   }
 
   async create(

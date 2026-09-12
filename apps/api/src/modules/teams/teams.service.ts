@@ -7,6 +7,7 @@ import type { TeamResponse } from "@ewm/shared-types";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { CreateTeamDto } from "./dto/create-team.dto";
 import type { UpdateTeamDto } from "./dto/update-team.dto";
+import type { RequestUser } from "../auth/strategies/jwt.strategy";
 
 // Tenant scoping identical to EmployeesService: every lookup is keyed by the
 // JWT-derived organisationId. Team names are unique per org so different
@@ -15,9 +16,10 @@ import type { UpdateTeamDto } from "./dto/update-team.dto";
 export class TeamsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(organisationId: string): Promise<TeamResponse[]> {
+  async list(organisationId: string, actor: RequestUser): Promise<TeamResponse[]> {
+    const self = actor.role === "TEAM_LEAD" ? await this.prisma.employee.findFirst({ where: { organisationId, userId: actor.id, deletedAt: null }, select: { teamId: true } }) : null;
     const teams = await this.prisma.team.findMany({
-      where: { organisationId, deletedAt: null },
+      where: { organisationId, deletedAt: null, ...(self?.teamId ? { id: self.teamId } : {}) },
       orderBy: { createdAt: "asc" },
       include: { manager: true, _count: { select: { members: true } } },
     });

@@ -1,34 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { TimeEntryResponse } from "@ewm/shared-types";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3001";
-
-const getAccessToken = (): string | null => {
-  return (global as any).__ewmAccessToken ?? null;
-};
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getAccessToken();
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (body?.message) message = Array.isArray(body.message) ? body.message.join(", ") : String(body.message);
-    } catch { /* keep fallback */ }
-    throw new Error(message);
-  }
-  const text = await res.text();
-  return (text ? JSON.parse(text) : null) as T;
-}
+import { apiFetch } from "../../lib/api";
 
 function fmtDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -44,6 +17,7 @@ export default function TimerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [taskId, setTaskId] = useState("");
 
   const loadActiveEntry = useCallback(async () => {
     try {
@@ -70,7 +44,7 @@ export default function TimerScreen() {
   const handleStart = async () => {
     setError(null); setNotice(null); setSubmitting(true);
     try {
-      await apiFetch("/time-entries/start", { method: "POST", body: JSON.stringify({}) });
+      await apiFetch("/time-entries/start", { method: "POST", body: JSON.stringify(taskId.trim() ? { taskId: taskId.trim() } : {}) });
       await loadActiveEntry(); setNotice("Timer started");
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to start timer"); }
     finally { setSubmitting(false); }
@@ -135,6 +109,7 @@ export default function TimerScreen() {
       ) : (
         <View style={styles.idleSection}>
           <Text style={styles.idleText}>No active timer</Text>
+          <TextInput style={styles.taskInput} placeholder="Task ID (optional)" value={taskId} onChangeText={setTaskId} />
           <TouchableOpacity style={[styles.button, { backgroundColor: "#2e7d32" }]} onPress={handleStart} disabled={submitting}>
             <Text style={styles.buttonText}>Start Timer</Text>
           </TouchableOpacity>
@@ -163,4 +138,5 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
   idleSection: { alignItems: "center" },
   idleText: { fontSize: 16, color: "#666", marginBottom: 24 },
+  taskInput: { borderWidth: 1, borderColor: "#d9e1df", borderRadius: 8, backgroundColor: "#fff", padding: 10, width: 240, marginBottom: 12 },
 });

@@ -1,0 +1,17 @@
+import { useEffect, useState } from "react";
+import { useLocalSearchParams, router } from "expo-router";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import type { TaskResponse } from "@ewm/shared-types";
+import { apiFetch } from "../../lib/api";
+
+export default function TaskDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [task, setTask] = useState<TaskResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { void apiFetch<TaskResponse>(`/tasks/${id}`).then(setTask).catch((err) => setError(err instanceof Error ? err.message : "Failed to load task")); }, [id]);
+  async function action(name: string) { setBusy(true); setError(null); try { setTask(await apiFetch<TaskResponse>(`/tasks/${id}/${name}`, { method: "POST" })); } catch (err) { setError(err instanceof Error ? err.message : "Task action failed"); } finally { setBusy(false); } }
+  if (!task) return <View style={styles.center}>{error ? <Text style={styles.error}>{error}</Text> : <ActivityIndicator />}</View>;
+  return <View style={styles.container}><TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹ Back</Text></TouchableOpacity><Text style={styles.title}>{task.title}</Text><Text style={styles.project}>{task.projectName} · {task.priority}</Text><View style={styles.status}><Text style={styles.statusText}>{task.status.replace("_", " ")}</Text></View>{task.description && <Text style={styles.description}>{task.description}</Text>}{task.dueDate && <Text style={styles.meta}>Due {new Date(task.dueDate).toLocaleDateString()}</Text>}<View style={styles.actions}>{["NOT_STARTED", "SCHEDULED", "BLOCKED"].includes(task.status) && <TouchableOpacity style={styles.button} disabled={busy} onPress={() => void action("start")}><Text style={styles.buttonText}>Start work</Text></TouchableOpacity>}{task.status === "IN_PROGRESS" && <TouchableOpacity style={styles.button} disabled={busy} onPress={() => void action("pause")}><Text style={styles.buttonText}>Pause</Text></TouchableOpacity>}{task.status === "PAUSED" && <TouchableOpacity style={styles.button} disabled={busy} onPress={() => void action("resume")}><Text style={styles.buttonText}>Resume</Text></TouchableOpacity>}{["IN_PROGRESS", "PAUSED"].includes(task.status) && <TouchableOpacity style={[styles.button, styles.complete]} disabled={busy} onPress={() => void action("complete")}><Text style={styles.buttonText}>Complete</Text></TouchableOpacity>}</View>{error && <Text style={styles.error}>{error}</Text>}</View>;
+}
+const styles = StyleSheet.create({ container: { flex: 1, padding: 24, backgroundColor: "#f5f7f4" }, center: { flex: 1, justifyContent: "center", alignItems: "center" }, back: { color: "#e8654f", fontWeight: "800", marginBottom: 28 }, title: { color: "#17324d", fontSize: 30, fontWeight: "800" }, project: { color: "#68737d", marginTop: 8 }, status: { alignSelf: "flex-start", backgroundColor: "#e9f0f4", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, marginTop: 18 }, statusText: { color: "#1565c0", fontWeight: "800" }, description: { color: "#17202a", fontSize: 16, marginTop: 28 }, meta: { color: "#68737d", marginTop: 14 }, actions: { flexDirection: "row", gap: 10, flexWrap: "wrap", marginTop: 32 }, button: { backgroundColor: "#17324d", borderRadius: 10, padding: 13 }, complete: { backgroundColor: "#2e7d32" }, buttonText: { color: "#fff", fontWeight: "800" }, error: { color: "#c62828", marginTop: 16 } });
