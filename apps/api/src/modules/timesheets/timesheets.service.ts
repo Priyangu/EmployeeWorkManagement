@@ -8,7 +8,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type { TimesheetResponse, TimesheetStatus } from "@ewm/shared-types";
+import type {
+  TimesheetResponse,
+  TimesheetStatus,
+  TimesheetSummaryGranularity,
+  TimesheetSummaryResponse,
+} from "@ewm/shared-types";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { RequestUser } from "../auth/strategies/jwt.strategy";
@@ -20,7 +25,7 @@ import type {
 const MANAGER_LEVEL_ROLES = new Set(["ORG_ADMIN", "MANAGER", "TEAM_LEAD"]);
 
 type TimesheetRow = Prisma.TimesheetGetPayload<{
-  include: { employee: { select: { name: true } }; approvedBy: { select: { name: true } } };
+  include: { employee: { select: { name: true } }; approvedBy: { select: { email: true } } };
 }>;
 
 @Injectable()
@@ -167,6 +172,119 @@ export class TimesheetsService {
     });
 
     return rows.map((ts) => this.toResponse(ts));
+  }
+
+  // GET /timesheets/summary — aggregate completed time entries into calendar
+  // buckets without creating mutable timesheet snapshots.
+  async summary(
+    organisationId: string,
+    user: RequestUser,
+    query: {
+      granularity: TimesheetSummaryGranularity;
+      periodFrom: string;
+      periodTo: string;
+      employeeId?: string;
+    },
+  ): Promise<TimesheetSummaryResponse[]> {
+    const periodFrom = new Date(query.periodFrom);
+    const periodTo = new Date(query.periodTo);
+    if (periodFrom >= periodTo) {
+      throw new ConflictException("periodFrom must be before periodTo");
+    }
+
+    let employeeId = query.employeeId;
+    let employeeName: string | undefined;
+    if (!MANAGER_LEVEL_ROLES.has(user.role)) {
+      const self = await this.resolveSelfEmployee(organisationId, user);
+      if (employeeId && employeeId !== self.id) {
+        throw new ForbiddenException("You may only view your own timesheet summary");
+      }
+      employeeId = self.id;
+      employeeName = self.name;
+    } else if (employeeId) {
+      const employee = await this.prisma.employee.findFirst({
+        where: { id: employeeId, organisationId, deletedAt: null },
+        select: { name: true },
+      });
+      if (!employee) {
+        throw new NotFoundException("Employee not found in this organisation");
+      }
+      employeeName = employee.name;
+    }
+
+    const entries = await this.prisma.timeEntry.findMany({
+      where: {
+        organisationId,
+        ...(employeeId ? { employeeId } : {}),
+        status: "COMPLETED",
+        startTime: { lt: periodTo },
+        endTime: { gt: periodFrom },
+      },
+      include: { employee: { select: { name: true } } },
+      orderBy: { startTime: "asc" },
+    });
+
+    const buckets = new Map<string, TimesheetSummaryResponse>();
+    for (const entry of entries) {
+      if (!entry.endTime || entry.endTime <= periodFrom || entry.startTime >= periodTo) {
+        continue;
+      }
+
+      const bucketStart = this.summaryBucketStart(entry.startTime, query.granularity);
+      const key = `${entry.employeeId}:${bucketStart.toISOString()}`;
+      const bucketEnd = this.summaryBucketEnd(bucketStart, query.granularity);
+      const clippedStart = entry.startTime < periodFrom ? periodFrom : entry.startTime;
+      const clippedEnd = entry.endTime > periodTo ? periodTo : entry.endTime;
+      const minutes = Math.max(
+        0,
+        Math.round((clippedEnd.getTime() - clippedStart.getTime()) / 60000),
+      );
+      const existing = buckets.get(key);
+      if (existing) {
+        existing.totalMinutes += minutes;
+      } else {
+        buckets.set(key, {
+          employeeId: entry.employeeId,
+          employeeName: employeeName ?? entry.employee.name,
+          periodStart: bucketStart.toISOString(),
+          periodEnd: bucketEnd.toISOString(),
+          totalMinutes: minutes,
+        });
+      }
+    }
+
+    return [...buckets.values()].sort(
+      (a, b) =>
+        a.periodStart.localeCompare(b.periodStart) ||
+        a.employeeName.localeCompare(b.employeeName),
+    );
+  }
+
+  private summaryBucketStart(
+    date: Date,
+    granularity: TimesheetSummaryGranularity,
+  ): Date {
+    const start = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+    if (granularity === "weekly") {
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+    } else if (granularity === "monthly") {
+      start.setUTCDate(1);
+    }
+    return start;
+  }
+
+  private summaryBucketEnd(
+    start: Date,
+    granularity: TimesheetSummaryGranularity,
+  ): Date {
+    const end = new Date(start);
+    if (granularity === "daily") end.setUTCDate(end.getUTCDate() + 1);
+    if (granularity === "weekly") end.setUTCDate(end.getUTCDate() + 7);
+    if (granularity === "monthly") end.setUTCMonth(end.getUTCMonth() + 1);
+    end.setTime(end.getTime() - 1);
+    return end;
   }
 
   // ── Create ─────────────────────────────────────────────────────────────────

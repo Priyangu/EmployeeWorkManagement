@@ -8,6 +8,41 @@ export interface HealthCheckResponse {
   service: string;
 }
 
+export interface DashboardTodayResponse {
+  date: string;
+  employeesWorking: number;
+  tasksScheduled: number;
+  tasksCompleted: number;
+  overdueTasks: number;
+  activeTasks: number;
+}
+
+export interface DashboardTeamWorkloadResponse {
+  periodFrom: string;
+  periodTo: string;
+  employees: Array<{
+    employeeId: string;
+    employeeName: string;
+    scheduledHours: number;
+    actualHours: number;
+    remainingTasks: number;
+    capacityHours: number;
+  }>;
+}
+
+export interface DashboardProjectPerformanceResponse {
+  periodFrom: string;
+  periodTo: string;
+  projects: Array<{
+    projectId: string;
+    projectName: string;
+    plannedHours: number;
+    actualHours: number;
+    varianceHours: number;
+    completionPercent: number;
+  }>;
+}
+
 // Core enums (added early since almost every later module depends on them).
 // Extend this file as new modules land — do not duplicate these definitions
 // in individual apps.
@@ -443,6 +478,23 @@ export interface TimesheetResponse {
   parentTimesheetId: string | null;
   createdAt: string; // ISO-8601
   updatedAt: string; // ISO-8601
+}
+
+export const TimesheetSummaryGranularity = {
+  DAILY: "daily",
+  WEEKLY: "weekly",
+  MONTHLY: "monthly",
+} as const;
+
+export type TimesheetSummaryGranularity =
+  (typeof TimesheetSummaryGranularity)[keyof typeof TimesheetSummaryGranularity];
+
+export interface TimesheetSummaryResponse {
+  employeeId: string;
+  employeeName: string;
+  periodStart: string;
+  periodEnd: string;
+  totalMinutes: number;
 }
 
 export interface CreateTimesheetRequest {

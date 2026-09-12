@@ -452,6 +452,42 @@ Each milestone is sized to be reviewable independently and shippable to a stagin
 
 ---
 
+## H. Post-Phase Backlog (Deferred Work)
+
+Work explicitly deferred until Phases 1–14 are complete. Captured here so it is
+not lost; re-scope each item into a milestone when the time comes.
+
+### Phase 9 follow-ups — Timesheets, Attendance & Leave
+- **Attendance timezone correctness.** `isLate` / `isEarlyDeparture` are derived
+  by comparing `now.getUTCHours()` against a hardcoded 17:00 (early departure) or
+  an hour parsed straight from the employee's `workingHours` JSON — no
+  organisation or employee timezone offset is applied. This is only correct for
+  UTC-based orgs; it will misclassify lateness in NZ (UTC+12/+13) and everywhere
+  else. Decide where the timezone lives (assumption #6 already puts an IANA
+  `timeZone` on `Employee`; `Organisation` may also need one) and apply it when
+  computing expected start/finish. Kept UTC-only for the MVP.
+- **International / multi-timezone support.** Generalise the above beyond a
+  single NZ-friendly timezone once there is customer demand — per-org timezone
+  configuration, DST-safe comparisons, and timezone-aware weekly timesheet
+  boundaries (Monday/Sunday are currently computed in UTC).
+- **Phase 9 web UI.** No web pages exist yet for timesheets, attendance or leave
+  (API-first, consistent with how Phases 5–6 shipped). Confirm whether this is
+  intentionally deferred or an oversight; if deferred, track the three UI
+  surfaces here.
+- **Attendance & leave critical-test coverage.** The Phase 9 critical
+  immutability test is covered (`apps/api/test/timesheets.e2e-spec.ts`). Still to
+  add before the Phase 13 hardening checklist: one-active-clock-in-per-employee
+  enforcement, and leave approve/reject authorization + tenant isolation.
+
+### Cross-cutting follow-ups
+- **Web auth hardening (Phases 2–3).** The web client stores the refresh token in
+  `localStorage` but never uses it — there is no 401 → `/auth/refresh` retry, so a
+  session effectively ends when the 15-minute access token expires. Logout also
+  only clears local storage and does not call `POST /auth/logout`, leaving the
+  server-side refresh-token row unrevoked. Move the refresh token to an httpOnly
+  cookie and wire up rotation + server-side revocation before real customer data.
+
+
 ## Next Step
 
 This is the design-phase deliverable. Per Section 32, implementation should wait for your review of:

@@ -14,7 +14,7 @@ import { TenantGuard } from "../../common/guards/tenant.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import type { UserRole } from "@ewm/shared-types";
+import { UserRole } from "@ewm/shared-types";
 import type { RequestUser } from "../auth/strategies/jwt.strategy";
 import { TimesheetsService } from "./timesheets.service";
 import {
@@ -22,6 +22,7 @@ import {
   RejectTimesheetDto,
   SubmitTimesheetDto,
   TimesheetQueryDto,
+  TimesheetSummaryQueryDto,
 } from "./dto/timesheets.dto";
 
 // Guard chain: Auth → Tenant → (Roles on mutating routes).
@@ -30,6 +31,14 @@ import {
 @Controller("timesheets")
 export class TimesheetsController {
   constructor(private readonly timesheetsService: TimesheetsService) {}
+
+  @Get("summary")
+  summary(
+    @CurrentUser() user: RequestUser,
+    @Query() query: TimesheetSummaryQueryDto,
+  ) {
+    return this.timesheetsService.summary(user.organisationId!, user, query);
+  }
 
   @Get()
   list(
@@ -44,9 +53,10 @@ export class TimesheetsController {
     });
   }
 
+  // Any org member may create their own timesheet — the service defaults
+  // employeeId to the caller's own Employee. Creating one for someone else
+  // is manager-only, enforced in the service via resolveTargetEmployee.
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ORG_ADMIN, UserRole.MANAGER, UserRole.TEAM_LEAD)
   @HttpCode(HttpStatus.CREATED)
   create(
     @CurrentUser() user: RequestUser,

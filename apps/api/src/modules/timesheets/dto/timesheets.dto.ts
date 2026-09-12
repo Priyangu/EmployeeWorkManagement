@@ -3,7 +3,10 @@
 // explicit (submit/approve/reject) so the API can enforce the critical rule:
 // once APPROVED, a timesheet is immutable — corrections create a new version.
 import { IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
-import { TimesheetStatus } from "@ewm/shared-types";
+import {
+  TimesheetStatus,
+  TimesheetSummaryGranularity,
+} from "@ewm/shared-types";
 
 export class CreateTimesheetDto {
   // Managers may create a timesheet for someone else; defaults to self.
@@ -41,4 +44,19 @@ export class TimesheetQueryDto {
   @IsOptional()
   @IsISO8601({ strict: true })
   periodTo?: string;
+}
+
+export class TimesheetSummaryQueryDto {
+  @IsEnum(TimesheetSummaryGranularity)
+  granularity!: TimesheetSummaryGranularity;
+
+  @IsISO8601({ strict: true })
+  periodFrom!: string;
+
+  @IsISO8601({ strict: true })
+  periodTo!: string;
+
+  @IsOptional()
+  @IsUUID()
+  employeeId?: string;
 }

@@ -18,26 +18,6 @@ const MANAGER_LEVEL_ROLES = new Set(["ORG_ADMIN", "MANAGER", "TEAM_LEAD"]);
 type AttendanceRow = Prisma.AttendanceGetPayload<{
   include: { employee: { select: { name: true; workingHours: true } } };
 }>;
-// Phase 9: Attendance — clock in/out tracking. One active (clockOut = null)
-// record per employee at a time.
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
-import type { AttendanceResponse } from "@ewm/shared-types";
-import type { Prisma } from "@prisma/client";
-import { PrismaService } from "../../prisma/prisma.service";
-import type { RequestUser } from "../auth/strategies/jwt.strategy";
-import type { ClockOutDto } from "./dto/attendance.dto";
-
-const MANAGER_LEVEL_ROLES = new Set(["ORG_ADMIN", "MANAGER", "TEAM_LEAD"]);
-
-type AttendanceRow = Prisma.AttendanceGetPayload<{
-  include: { employee: { select: { name: true; workingHours: true } }; };
-}>;
 
 @Injectable()
 export class AttendanceService {
@@ -107,7 +87,6 @@ export class AttendanceService {
     };
   }
 
-  resolveSelfEmployee,
   // POST /attendance/clock-in
   async clockIn(
     organisationId: string,

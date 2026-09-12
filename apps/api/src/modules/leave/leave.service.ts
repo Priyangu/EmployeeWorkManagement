@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { LeaveRequestResponse, LeaveStatus } from "@ewm/shared-types";
-import type { Prisma } from "@prisma/client";
+import type { LeaveStatus as PrismaLeaveStatus, LeaveType as PrismaLeaveType, Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { RequestUser } from "../auth/strategies/jwt.strategy";
 import type { CreateLeaveRequestDto, RejectLeaveRequestDto } from "./dto/leave.dto";
@@ -16,7 +16,7 @@ import type { CreateLeaveRequestDto, RejectLeaveRequestDto } from "./dto/leave.d
 const MANAGER_LEVEL_ROLES = new Set(["ORG_ADMIN", "MANAGER", "TEAM_LEAD"]);
 
 type LeaveRow = Prisma.LeaveRequestGetPayload<{
-  include: { employee: { select: { name: true } }; approvedBy: { select: { name: true } } };
+  include: { employee: { select: { name: true } }; approvedBy: { select: { email: true } } };
 }>;
 
 @Injectable()
@@ -79,8 +79,8 @@ export class LeaveService {
       where.employeeId = self.id;
     }
 
-        if (query.type) where.type = query.type as any;
-    if (query.status) where.status = query.status as any;
+        if (query.type) where.type = query.type as PrismaLeaveType;
+        if (query.status) where.status = query.status as PrismaLeaveStatus;
 
     const rows = await this.prisma.leaveRequest.findMany({
       where,

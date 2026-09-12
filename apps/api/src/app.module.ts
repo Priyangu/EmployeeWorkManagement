@@ -15,6 +15,7 @@ import { TimeTrackingModule } from "./modules/time-tracking/time-tracking.module
 import { TimesheetsModule } from "./modules/timesheets/timesheets.module";
 import { AttendanceModule } from "./modules/attendance/attendance.module";
 import { LeaveModule } from "./modules/leave/leave.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { LeaveModule } from "./modules/leave/leave.module";
     TimesheetsModule,
     AttendanceModule,
     LeaveModule,
+    DashboardModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

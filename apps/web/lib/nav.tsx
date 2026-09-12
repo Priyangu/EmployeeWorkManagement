@@ -8,6 +8,9 @@ const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/teams", label: "Teams" },
   { href: "/schedule", label: "Schedule" },
   { href: "/time-tracking", label: "Time Tracking" },
+  { href: "/timesheets", label: "Timesheets" },
+  { href: "/attendance", label: "Attendance" },
+  { href: "/leave", label: "Leave" },
 ];
 
 // Shared top navigation for authenticated pages. Plain <a> links keep it
