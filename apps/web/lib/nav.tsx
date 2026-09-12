@@ -7,6 +7,9 @@ const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/employees", label: "Employees" },
   { href: "/teams", label: "Teams" },
   { href: "/schedule", label: "Schedule" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/reports", label: "Reports" },
+  { href: "/notifications", label: "Notifications" },
   { href: "/time-tracking", label: "Time Tracking" },
   { href: "/timesheets", label: "Timesheets" },
   { href: "/attendance", label: "Attendance" },
@@ -24,7 +27,7 @@ export function Nav({
   onLogout: () => void;
 }) {
   return (
-    <header style={{ display: "flex", gap: 12, alignItems: "center" }}>
+    <header className="app-nav">
       <strong>EWM</strong>
       <span style={{ flex: 1 }} />
       {NAV_ITEMS.map((item) => (
@@ -33,7 +36,7 @@ export function Nav({
         </a>
       ))}
       {user && (
-        <span style={{ color: "#666" }}>{user.email} ({user.role})</span>
+        <span className="nav-user">{user.email} ({user.role})</span>
       )}
       <button type="button" onClick={onLogout}>
         Sign out

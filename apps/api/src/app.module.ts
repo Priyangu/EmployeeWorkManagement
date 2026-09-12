@@ -16,6 +16,8 @@ import { TimesheetsModule } from "./modules/timesheets/timesheets.module";
 import { AttendanceModule } from "./modules/attendance/attendance.module";
 import { LeaveModule } from "./modules/leave/leave.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { ReportsModule } from "./modules/reports/reports.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
     AttendanceModule,
     LeaveModule,
     DashboardModule,
+    ReportsModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

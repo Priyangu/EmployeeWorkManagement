@@ -19,6 +19,7 @@ import type { UpdateTaskDto } from "./dto/update-task.dto";
 import type { AssignTaskDto } from "./dto/assign-task.dto";
 import type { CreateTaskCommentDto } from "./dto/create-task-comment.dto";
 import type { CreateTaskAttachmentDto } from "./dto/create-task-attachment.dto";
+import { NotificationsService } from "../notifications/notifications.service";
 
 // Allowed status transitions. Terminal states (COMPLETED/CANCELLED) have no
 // outgoing edges — the critical Phase 6 test pins that they never leave.
@@ -41,7 +42,10 @@ const TASK_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 // the User account directly. Status moves only through `transition()`.
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private readonly include = {
     project: { select: { name: true } },
@@ -83,6 +87,7 @@ export class TasksService {
 
   async getById(organisationId: string, id: string): Promise<TaskResponse> {
     const task = await this.findInOrgOrThrow(organisationId, id);
+    if (task.assigneeId) await this.notifyAssignment(organisationId, task.id, task.title, task.assigneeId);
     return this.toResponse(task);
   }
 
@@ -142,7 +147,22 @@ export class TasksService {
         include: this.include,
       });
     });
+    if (task.assigneeId) await this.notifyAssignment(organisationId, task.id, task.title, task.assigneeId);
     return this.toResponse(task);
+  }
+
+  private async notifyAssignment(
+    organisationId: string,
+    taskId: string,
+    title: string,
+    employeeId: string,
+  ): Promise<void> {
+    const assignee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, organisationId, deletedAt: null },
+      select: { userId: true },
+    });
+    if (!assignee?.userId) return;
+    await this.notifications.create(organisationId, assignee.userId, "TASK_ASSIGNED", { taskId, title });
   }
 
   async update(
@@ -218,6 +238,7 @@ export class TasksService {
         include: this.include,
       });
     });
+    await this.notifyAssignment(organisationId, task.id, task.title, assignee.id);
     return this.toResponse(task);
   }
 

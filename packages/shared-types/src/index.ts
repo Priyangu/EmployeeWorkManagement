@@ -8,6 +8,20 @@ export interface HealthCheckResponse {
   service: string;
 }
 
+export type NotificationType =
+  | "TASK_ASSIGNED"
+  | "TIMESHEET_APPROVED"
+  | "TIMESHEET_REJECTED";
+
+export interface NotificationResponse {
+  id: string;
+  type: NotificationType;
+  payload: Record<string, unknown>;
+  isRead: boolean;
+  createdAt: string;
+  readAt: string | null;
+}
+
 export interface DashboardTodayResponse {
   date: string;
   employeesWorking: number;

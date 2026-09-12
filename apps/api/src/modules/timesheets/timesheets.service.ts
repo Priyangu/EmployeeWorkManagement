@@ -21,6 +21,7 @@ import type {
   CreateTimesheetDto,
   RejectTimesheetDto,
 } from "./dto/timesheets.dto";
+import { NotificationsService } from "../notifications/notifications.service";
 
 const MANAGER_LEVEL_ROLES = new Set(["ORG_ADMIN", "MANAGER", "TEAM_LEAD"]);
 
@@ -30,7 +31,10 @@ type TimesheetRow = Prisma.TimesheetGetPayload<{
 
 @Injectable()
 export class TimesheetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
     private readonly include = {
     employee: { select: { name: true } },
@@ -434,6 +438,8 @@ export class TimesheetsService {
       },
     });
 
+    await this.notifyDecision(organisationId, ts.employeeId, "TIMESHEET_APPROVED", ts.id, "APPROVED");
+
     return this.toResponse(updated);
   }
 
@@ -485,7 +491,24 @@ export class TimesheetsService {
       },
     });
 
+    await this.notifyDecision(organisationId, ts.employeeId, "TIMESHEET_REJECTED", ts.id, "REJECTED");
+
     return this.toResponse(updated);
+  }
+
+  private async notifyDecision(
+    organisationId: string,
+    employeeId: string,
+    type: "TIMESHEET_APPROVED" | "TIMESHEET_REJECTED",
+    timesheetId: string,
+    status: string,
+  ): Promise<void> {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, organisationId, deletedAt: null },
+      select: { userId: true },
+    });
+    if (!employee?.userId) return;
+    await this.notifications.create(organisationId, employee.userId, type, { timesheetId, status });
   }
 
   // ── Correct (post-approval amendment) ──────────────────────────────────────
