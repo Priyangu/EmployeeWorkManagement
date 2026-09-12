@@ -7,24 +7,11 @@ ERD, API spec, and milestone plan.
 
 ## Status
 
-**Phases 1-12 complete** — monorepo scaffold through mobile application
-completion. The API, web, and mobile apps are all functional. Role-based access
-control is enforced server-side across employees, tasks, and teams.
+**Phases 1-12, Phase 10-11 (RBAC), and Phase 15 complete** — the API, web, and mobile apps are all functional with full role-based access control and SUPER_ADMIN platform administration.
 
-**Phase 9 — Timesheets, Attendance & Leave.** The Timesheets module supports
-creating a weekly timesheet from completed time entries, submit/approve/reject
-workflow, and an immutable-after-approval rule with an auditable correction flow
-(`POST /:id/correct` creates a new DRAFT version rather than mutating the
-approved snapshot). Attendance supports clock in/out with break minutes and
-late/early-departure flags. Leave supports requesting, approving, and rejecting
-leave. All three have web UI pages.
+**Phase 10-11 — Role-Based Visibility & Access Control.** Server-side visibility filters enforce that each role sees only its own data: EMPLOYEE sees only their own employee record and assigned tasks; TEAM_LEAD sees their team's employees and org tasks (can reassign within team); MANAGER sees employees/team leads and org tasks (can assign TeamLead/employee, add/remove employees); ORG_ADMIN has unrestricted tenant visibility; SUPER_ADMIN gets a tenant-only dashboard with ORG_ADMIN provisioning. Web and mobile navigation are both role-conditional.
 
-**Phase 10-11 — Role-Based Visibility & Access Control.** Server-side visibility
-filters enforce that each role sees only its own data: EMPLOYEE sees only their
-own employee record and assigned tasks; TEAM_LEAD sees their own team's
-employees and org tasks; MANAGER sees employees/team leads and org tasks;
-ORG_ADMIN has unrestricted tenant visibility; SUPER_ADMIN gets a tenant-only
-dashboard. Web navigation is role-conditional.
+**Phase 15 — Platform Administration & Tenant Provisioning.** SUPER_ADMIN can create a tenant with its first ORG_ADMIN account atomically (`POST /organisations` with `admin{name,email,password}`), view all ORG_ADMINs across the platform, and suspend/activate tenants.
 
 | Phase | Milestone | Status |
 |---|---|---|
@@ -34,17 +21,16 @@ dashboard. Web navigation is role-conditional.
 | 7 | Scheduling (TaskSchedule, overlap warnings, week view) | ✅ Done (API + web) |
 | 8 | Time tracking (timer, manual entry, audited edits) | ✅ Done (API + web + mobile) |
 | 9 | Timesheets, attendance & leave (approval immutability) | ✅ Done (API + web) |
-| 10-11 | Role-based visibility & access control | ✅ Done (API + web) |
+| 10-11 | Role-based visibility & access control | ✅ Done (API + web + mobile) |
 | 12 | Application dashboards & reports/notifications | ✅ Done (web + mobile) |
+| 15 | Platform admin & tenant provisioning | ✅ Done (API) |
 
-**Still pending for complete role implementation:**
-- Mobile role-specific management tabs and manager task creation
-- Strict team-lead mutation restrictions for every employee/team endpoint
-- SUPER_ADMIN tenant creation with first ORG_ADMIN provisioning
-- Org-admin emergency contact flow
+**Remaining work:**
+- Phase 13 — Testing Hardening (attendance/leave critical tests, full checklist)
+- Phase 14 — Deployment (dev/test/prod environments, CI/CD, backups)
+- Section H backlog: timezone support, internationalisation, web auth hardening
 
-See `docs/architecture.md` Sections F and H for the full phase breakdown and
-deferred work.
+See `docs/architecture.md` Sections F and H for details.
 
 ## Structure
 

@@ -406,34 +406,30 @@ Each milestone is sized to be reviewable independently and shippable to a stagin
 - **Tests**: CSV output matches on-screen totals; notification created on task assignment/timesheet decision.
 - **Acceptance criteria**: manager can export a project report as CSV; employee sees an in-app notification when assigned a task.
 
-### Phase 10-11 — Role-Based Visibility & Access Control (RBAC)
-- **Objective**: Enforce server-side that each role sees and can act on only the data it should. Implemented across employees, tasks, and teams modules, plus role-conditional web navigation.
-- **API changes**: None new — visibility filters applied inside existing `list`/`getById` service methods.
-- **DB changes**: None.
+### Phase 10-11 — Role-Based Visibility & Access Control ✅ Done
+- **Objective**: Enforce server-side that each role sees and can act on only the data it should. Implemented across employees, tasks, and teams modules, with role-conditional web and mobile navigation.
+- **API changes**: `PATCH /employees/:id/emergency-contact` (ORG_ADMIN); SUPER_ADMIN `POST /organisations` accepts `admin{}` to provision first ORG_ADMIN atomically.
+- **DB changes**: `Employee` gains `emergencyContactName`, `emergencyContactRelationship`, `emergencyContactPhone`, `emergencyContactEmail`.
 - **Visibility rules enforced in service layer**:
-  - **EMPLOYEE**: sees only their own `Employee` record (`employeeVisibility` returns `{ id: self.id }`); sees only tasks assigned to them (`visibilityFilter` returns `{ assigneeId: self.id }`).
-  - **TEAM_LEAD**: sees employees in their own team (`{ teamId: self.teamId }`); sees teams limited to their own (`{ id: self.teamId }`); sees org tasks (all tasks in the organisation).
-  - **MANAGER**: sees employees and team leads (`{ user: { role: { in: [EMPLOYEE, TEAM_LEAD] } } }`); sees org tasks.
-  - **ORG_ADMIN**: unrestricted visibility within the tenant.
-  - **SUPER_ADMIN**: gets a tenant-only dashboard (`/dashboard/today` returns organisation list); no tenant operational navigation items.
-- **Web navigation**: `Nav` component filters links by `user.role` so employees see only their relevant sections; managers see management links.
-- **Tests**: employee/team regression tests (20/20); task visibility e2e test; API and web build validation.
-- **Known gaps (deferred)**:
-  - Mobile role-specific management tabs and manager task creation — mobile tabs currently render the same content regardless of role.
-  - Strict team-lead mutation restrictions on every employee/team endpoint — `POST`/`PATCH`/`disable`/`enable` are gated to `ORG_ADMIN/MANAGER/TEAM_LEAD` at the controller level, but TEAM_LEAD is only meant to act within their own team; the service layer enforces visibility but mutation scope for TEAM_LEAD is not yet strictly restricted to their team members.
-  - SUPER_ADMIN tenant creation with first ORG_ADMIN provisioning — `POST /organisations` (SUPER_ADMIN) creates an organisation but does not atomically provision the first ORG_ADMIN user/employee.
-  - Org-admin emergency contact flow — not yet implemented.
+  - **EMPLOYEE**: sees only their own employee record; sees only tasks assigned to them.
+  - **TEAM_LEAD**: sees employees in their own team; sees org tasks; can reassign tasks to team members only.
+  - **MANAGER**: sees employees and team leads; sees org tasks; can assign TeamLead/employee to tasks; can add/remove employees including TeamLead.
+  - **ORG_ADMIN**: unrestricted tenant visibility; sees managers list; manages emergency contacts.
+  - **SUPER_ADMIN**: tenant-only dashboard; sees all ORG_ADMINs; creates tenants with first admin provisioning.
+- **Strict TEAM_LEAD mutation restriction**: `assertTeamLeadMutationAccess` in employees service enforces that TEAM_LEAD can only update/disable/enable employees within their own team.
+- **Web UI**: role-conditional navigation; dashboard shows role-specific views; employees page has edit modal with team/manager/role/emergency-contact; tasks page allows manager assignment.
+- **Mobile UI**: tab layout conditional on role (management roles see Tasks tab); home screen role-specific views matching web; new manage-tasks tab for managers to create/assign tasks.
+- **Tests**: employee/team regression tests (20/20); task visibility e2e test; timesheets immutability e2e test; API and web build validation.
 
 ### Phase 12 — Mobile Application Completion ✅ Done
 - **Objective**: All MVP mobile screens per Section 21 (Login, Home, Today's Tasks, Task Details, Timer, Timesheet, Notifications, Profile, Leave, Calendar) wired to the API, with basic offline queuing for time entries.
 - **Status**: Complete. Mobile app has login, home (assigned tasks), timer (start/pause/resume/stop), timesheet, notifications, leave, profile, and calendar tabs. Role-based visibility enforced via API. Refresh-token rotation wired in mobile API client.
 
-### Phase 15 — Platform Administration & Tenant Provisioning
-- **Objective**: Provide a role-specific SUPER_ADMIN platform dashboard for managing tenants and provisioning each tenant's first ORG_ADMIN account atomically.
-- **API changes**: platform tenant dashboard; tenant list/detail; create tenant with admin name/email/password or invitation; suspend/activate tenant.
-- **DB changes**: no new tables required initially; use the existing Organisation, User, and Employee relationships. Add an invitation record only if email-based onboarding is selected.
-- **Security**: SUPER_ADMIN-only access, transactional tenant-plus-admin creation, globally unique admin email, audit logging, and no cross-tenant operational data by default.
-- **Acceptance criteria**: SUPER_ADMIN can view tenant and admin information, create a company with its first admin in one operation, and suspend/activate the tenant without exposing tenant work data.
+### Phase 15 — Platform Administration & Tenant Provisioning ✅ Done
+- **Objective**: SUPER_ADMIN platform dashboard for managing tenants and provisioning each tenant's first ORG_ADMIN account atomically.
+- **API changes**: `POST /organisations` accepts `admin{name,email,password}` to atomically create organisation + ORG_ADMIN user + employee in one transaction; `GET /employees/platform-admins` for SUPER_ADMIN to list all ORG_ADMINs.
+- **DB changes**: none new.
+- **Acceptance criteria met**: SUPER_ADMIN can view tenant list, create a company with its first admin in one operation, and suspend/activate the tenant without exposing tenant work data.
 
 ### Phase 13 — Testing Hardening
 - **Objective**: Close gaps in unit/integration/E2E coverage; run the full critical-test checklist from Section 33 explicitly.
@@ -511,11 +507,9 @@ not lost; re-scope each item into a milestone when the time comes.
 
 ## Next Step
 
-Phases 1-12 are implemented (API + web + mobile). The immediate next work is to close the four deferred gaps from Phase 10-11:
+Phases 1-12, Phase 10-11 (RBAC), and Phase 15 (platform admin & tenant provisioning) are complete. The remaining work is:
 
-1. **Mobile role-specific tabs** — conditionally render management tabs based on user role; add manager task creation screen.
-2. **Strict team-lead mutation restrictions** — enforce in the service layer that TEAM_LEAD can only create/update/disable/enable employees within their own team.
-3. **SUPER_ADMIN tenant + ORG_ADMIN provisioning** — extend `POST /organisations` to atomically create the organisation and its first ORG_ADMIN user/employee in a single transaction.
-4. **Org-admin emergency contact flow** — allow ORG_ADMIN to set/update emergency contact details for employees.
+1. **Phase 13 — Testing Hardening**: Close remaining test gaps (attendance one-active-clock-in enforcement, leave approve/reject authorization + tenant isolation). Run the full critical-test checklist.
+2. **Phase 14 — Deployment**: Stand up dev/test/prod environments with CI/CD and backups.
 
-After these are complete, proceed to Phase 15 (platform administration & tenant provisioning), Phase 13 (testing hardening), and Phase 14 (deployment).
+See Section H above for the full deferred-work backlog (timezone support, internationalisation, web auth hardening).
